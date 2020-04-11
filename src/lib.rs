@@ -1,6 +1,7 @@
 extern crate pyo3;
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
+mod frontier;
 
 #[pyfunction]
 pub fn sum_as_string(a: usize, b: usize) -> PyResult<String> {

@@ -46,14 +46,3 @@ setuptools.setup(
     ],
     zip_safe=False,
 )
-
-
-setup(
-
-    version="1.0",
-
-
-
-    # rust extensions are not zip safe, just like C-extensions.
-
-)
