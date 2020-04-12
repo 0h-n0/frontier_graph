@@ -1,5 +1,3 @@
-// ref: https://github.com/junkawahara/frontier-basic
-// ref: https://users.rust-lang.org/t/is-rc-refcell-a-code-smell/27366
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::collections::VecDeque;
@@ -52,7 +50,7 @@ pub struct ZDDNode {
     comp: Option<RefCell<Vec<usize>>>,
     indeg: Option<RefCell<Vec<usize>>>,
     outdeg: Option<RefCell<Vec<usize>>>,
-    sol: i64,
+    sol: usize,
     zero_child: Option<Rc<RefCell<ZDDNode>>>,
     one_child: Option<Rc<RefCell<ZDDNode>>>,
     id: usize,
@@ -262,7 +260,7 @@ impl ZDD {
         }
         num + 2
     }
-    pub fn get_number_of_solutions(&mut self) -> i64 {
+    pub fn get_number_of_solutions(&mut self) -> usize {
         let mut i = self.node_list_array.len() - 1;
         let mut max_id = 0;
         while i > 0 {
@@ -291,8 +289,8 @@ impl ZDD {
             }
             i -= 1;
         }
-        if idx as i64 >= self.node_list_array[1][0].borrow().sol {
-            return Err(format!("id[{:?}x > number_solution[{:?}]", idx, self.node_list_array[1][0].borrow().sol));
+        if idx >= self.node_list_array[1][0].borrow().sol {
+            return Err(format!("id[{:?}] > number_solution[{:?}]", idx, self.node_list_array[1][0].borrow().sol));
         }
         let mut i = self.node_list_array.len() - 1;
         let mut solution_array = vec![0; max_id+1];
@@ -569,13 +567,43 @@ impl Frontier {
     }
 }
 
+pub fn calc_frontier_combination(
+    number_of_vertices: usize,
+    edge_list: Vec<(usize, usize)>,
+    srcs: Vec<usize>,
+    dsts: Vec<usize>,
+    n_samples: usize) -> Vec<Vec<usize>> {
+    let edge_list = edge_list.iter().map(|(s, d)| Edge::new(*s, *d)).collect();
+    let g = Graph::new(number_of_vertices, edge_list);
+    let state = State::new(g, srcs, dsts);
+    let frontier = Frontier::new();
+    let mut zdd = frontier.construct(&state);
+    let mut out: Vec<Vec<usize>> = vec![];
+    let n_sol = zdd.get_number_of_solutions();
+    let n_samples = if n_samples > n_sol {
+        n_sol
+    } else {
+        n_samples
+    };
+    for i in 0..n_samples {
+        let ele = zdd.get_sample(i).unwrap();
+        out.push(ele);
+    }
+    out
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
-    fn no_test() {
-        println!("hello");
+    fn test_calc_frontier_combination() {
+        let number_of_vertices: usize = 4;
+        let edge_list: Vec<(usize, usize)> = vec![
+            (1, 2), (1, 3), (2, 4), (3, 4)];
+        let srcs: Vec<usize> = vec![1];
+        let dsts: Vec<usize> = vec![4];
+        let n_samples: usize = 2;
+        let out = calc_frontier_combination(number_of_vertices, edge_list, srcs, dsts, n_samples);
+        assert_eq!(out, vec![vec![2, 4], vec![1, 3]]);
     }
 }
