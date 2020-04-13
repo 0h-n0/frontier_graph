@@ -16,11 +16,6 @@ class NetworkxInterface:
         assert isinstance(starts, list), "TypeError: {type(starts}"
         assert isinstance(ends, list), "TypeError: {type(ends}"
         assert isinstance(n_sample, int), "TypeError: {type(n_sample}"
-        print(self.n_nodes)
-        print(list(self.digraph.edges())[0])
-        print(starts)
-        print(ends)
-        print(n_sample)
         out = frontier.calc_frontier_combination(
             self.n_nodes,
             list(self.digraph.edges()),
