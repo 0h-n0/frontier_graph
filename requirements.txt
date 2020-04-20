@@ -1,2 +1,3 @@
 setuptools_rust
 networkx
+git+https://github.com/inferno-pytorch/inferno.git
