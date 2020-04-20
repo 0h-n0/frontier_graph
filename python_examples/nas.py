@@ -4,6 +4,7 @@ from collections import OrderedDict
 
 import torch
 import torch.nn as nn
+import numpy as np
 import torchex.nn as exnn
 import networkx as nx
 from frontier_graph import NetworkxInterface
@@ -82,7 +83,7 @@ class ModuleGen:
         vec = list(_layer_dict.values())
         return FlattenLinear(out_channels), vec
 
-    def get_input(self):
+    def get_identity_vec(self):
         _layer_dict = copy.deepcopy(self.layer_dict)
         _layer_dict['identity'] = 1
         vec = list(_layer_dict.values())
@@ -93,6 +94,12 @@ class ModuleGen:
         _layer_dict['concat'] = 1
         vec = list(_layer_dict.values())
         return Concatenate(), vec
+
+    def get_empty_mat(self, n_node: int):
+        _layer_dict = copy.deepcopy(self.layer_dict)
+        n_features = len(_layer_dict.values())
+        mat = np.zeros((n_node, n_features))
+        return mat
 
     def __len__(self):
         if self._len is None:
@@ -126,7 +133,7 @@ class NetworkGeneratar:
     def _construct_module(self, edge_list, _idx):
         module = Graph()
         for i in self.starts:
-            vec = self.modulegen.get_input()
+            vec = self.modulegen.get_identity_vec()
             module.add_input_node(f'{i}', vec=vec)
         node_dict = {}
         for (src, dst) in [list(self.graph.edges())[i-1] for i in edge_list]:
@@ -145,10 +152,15 @@ class NetworkGeneratar:
                 module.add_node(f'{key}', mod, previous=[str(p) for p in previous], vec=vec)
         mod, vec = self.modulegen.get_linear(10)
         module.add_node(f'{int(key) + 1}', mod, vec=vec, previous=[f'{key}'])
-        edges = [e for e in module.graph.edges()]
-        node_features = [node[1]['vec'] for node in module.graph.nodes(data=True)]
+        vec = self.modulegen.get_identity_vec()
+        module.add_output_node(f'{int(key) + 2}', f'{int(key) + 1}', vec=vec)
+        edges = [[int(e[0]) - 1, int(e[1]) - 1] for e in module.graph.edges()]
+        node_features = self.modulegen.get_empty_mat(int(key) + 2)
+        for node in module.graph.nodes(data=True):
+            idx = int(node[0]) - 1
+            node_features[idx, :] = node[1]['vec']
         y = module(*self.dryrun_args)
-        return module, edges, node_features
+        return module, edges, np.vstack(node_features)
 
     def __iter__(self):
         self.counter = 0
@@ -211,4 +223,7 @@ if __name__ == "__main__":
     x = torch.rand(1, 3, 28, 28)
     ng = NetworkGeneratar(g, starts, ends, 100, dryrun_args=(x, x))
     for n in ng:
-        print(n)
+        module = n[0]
+        edges = n[1]
+        node_features = n[2]
+        print(module)
