@@ -32,7 +32,7 @@ setuptools.setup(
     description="Graph Proximity Search Library based on Frontiaer Algorithm.",
     url='https://github.com/0h-n0/frontier_subgraph',
     long_description=(p.parent / 'README.md').open(encoding='utf-8').read(),
-    packages=["src"],
+    packages=["src", "frontier_graph"],
     install_requires=install_requires,
     setup_requires=setup_requires,
     rust_extensions=[rust.RustExtension("frontier_graph.frontier")],
