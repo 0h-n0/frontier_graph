@@ -448,9 +448,9 @@ impl Frontier {
         let comp = n_hat.comp.as_ref().unwrap().borrow();
         if x == 1 {
             // cycle
-            if comp[edge.src] == comp[edge.dst] {
-                return Some(&self.zero_t);
-            }
+            // if comp[edge.src] == comp[edge.dst] {
+            //     return Some(&self.zero_t);
+            // }
         }
         let n_prime = n_hat.make_copy(state.graph.get_number_of_vertices(),
                                           *self.total_zddnode_id.borrow());
@@ -458,28 +458,28 @@ impl Frontier {
         let ref_deg = &n_prime.deg.unwrap().into_inner();
         let ref_indeg = &n_prime.indeg.unwrap().into_inner();
         let ref_outdeg = &n_prime.outdeg.unwrap().into_inner();
-        for y in 0..=1 {
-            let u = match y {
-                0 => edge.src,
-                _ => edge.dst,
-            };
-            if state.s.contains(&u) && (ref_indeg[u] > 0 || ref_outdeg[u] > 1 ) {
-                return Some(&self.zero_t);
-            } else if state.t.contains(&u) && (ref_indeg[u] > 1 || ref_outdeg[u] > 0 ) {
-                return Some(&self.zero_t);
-            }
-            else if (!state.s.contains(&u) && !state.t.contains(&u))
-                && (ref_indeg[u] == 0 && ref_outdeg[u] >= 1 ) {
-                 return Some(&self.zero_t);
-            }
-        }
+        // for y in 0..=1 {
+        //     let u = match y {
+        //         0 => edge.src,
+        //         _ => edge.dst,
+        //     };
+        //     if state.s.contains(&u) && (ref_indeg[u] > 0 || ref_outdeg[u] > 1 ) {
+        //         return Some(&self.zero_t);
+        //     } else if state.t.contains(&u) && (ref_indeg[u] > 1 || ref_outdeg[u] > 0 ) {
+        //         return Some(&self.zero_t);
+        //     } else if (!state.s.contains(&u) && !state.t.contains(&u))
+        //         && (ref_indeg[u] == 0 && ref_outdeg[u] >= 1 ) {
+        //          return Some(&self.zero_t);
+        //     }
+        // }
         for y in 0..=1 {
             let u = match y {
                 0 => edge.src,
                 _ => edge.dst,
             };
             if !state.frontier[i].contains(&u) {
-                if (state.s.contains(&u) && ref_outdeg[u] != 1) || (state.t.contains(&u) && ref_indeg[u] != 1) {
+                if (state.s.contains(&u) && ref_outdeg[u] != 1) 
+                    || (state.t.contains(&u) && ref_indeg[u] != 1) {
                     return Some(&self.zero_t);
                 } else if (!state.s.contains(&u) && !state.t.contains(&u)) {
                     if (ref_indeg[u] == 0 && ref_outdeg[u] != 0) {
@@ -572,7 +572,8 @@ pub fn calc_frontier_combination(
     edge_list: Vec<(usize, usize)>,
     srcs: Vec<usize>,
     dsts: Vec<usize>,
-    n_samples: usize) -> Vec<Vec<usize>> {
+    n_samples: usize,
+    fixed_edges: Option<Vec<(usize, usize)>>) -> Vec<Vec<usize>> {
     let edge_list = edge_list.iter().map(|(s, d)| Edge::new(*s, *d)).collect();
     let g = Graph::new(number_of_vertices, edge_list);
     let state = State::new(g, srcs, dsts);
@@ -603,7 +604,21 @@ mod tests {
         let srcs: Vec<usize> = vec![1];
         let dsts: Vec<usize> = vec![4];
         let n_samples: usize = 2;
-        let out = calc_frontier_combination(number_of_vertices, edge_list, srcs, dsts, n_samples);
+        let out = calc_frontier_combination(number_of_vertices, edge_list, srcs, dsts, n_samples, None);
         assert_eq!(out, vec![vec![2, 4], vec![1, 3]]);
     }
+
+    #[test]
+    fn test_calc_frontier_combination_with_fixed_edges() {
+        let number_of_vertices: usize = 4;
+        let edge_list: Vec<(usize, usize)> = vec![
+            (1, 2), (1, 3), (2, 4), (3, 4)];
+        let srcs: Vec<usize> = vec![1];
+        let dsts: Vec<usize> = vec![4];
+        let fiexed_edges: Vec<(usize, usize)> = vec![(1, 2)];
+        let n_samples: usize = 2;
+        let out = calc_frontier_combination(number_of_vertices, edge_list, srcs, dsts, n_samples, Some(fiexed_edges));
+        assert_eq!(out, vec![vec![2, 4], vec![1, 3]]);
+    }
+    
 }
