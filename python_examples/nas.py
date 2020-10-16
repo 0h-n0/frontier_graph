@@ -15,7 +15,7 @@ from inferno.extensions.containers import Graph
 
 def conv2d(out_channels, kernel_size, stride):
     return exnn.Conv2d(out_channels=out_channels,
-                kernel_size=kernel_size,
+                       kernel_size=kernel_size,
                        stride=stride)
 
 
@@ -136,7 +136,7 @@ class NetworkGeneratar:
             vec = self.modulegen.get_identity_vec()
             module.add_input_node(f'{i}', vec=vec)
         node_dict = {}
-        for (src, dst) in [list(self.graph.edges())[i-1] for i in edge_list]:
+        for (src, dst) in [list(self.graph.edges())[i - 1] for i in edge_list]:
             if not dst in node_dict.keys():
                 node_dict[dst] = [src]
             else:
@@ -196,7 +196,7 @@ class NetworkGeneratar:
             n_layer = len(self.modulegen)
             n = 0
             for graph in self.subgraph:
-                n_edges = len(graph) # return number of edges
+                n_edges = len(graph)  # return number of edges
                 n += n_layer ** n_edges
             self._len = n
         return self._len
@@ -205,7 +205,7 @@ class NetworkGeneratar:
 if __name__ == "__main__":
     g = nx.DiGraph()
     starts = [1, 2]
-    ends = [9,]
+    ends = [9, ]
     g.add_edge(1, 3)
     g.add_edge(2, 4)
     g.add_edge(3, 5)

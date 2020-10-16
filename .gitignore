@@ -106,3 +106,8 @@ example/pytorch/*
 \.*#
 
 exp/*
+
+# editor
+.vscode
+**/my_test/
+memo.md
