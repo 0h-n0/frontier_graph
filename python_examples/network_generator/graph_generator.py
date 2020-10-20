@@ -7,6 +7,7 @@ from typing import List
 from test_data_generator import make_graph
 from layer import conv_output_size
 
+import random
 from functools import reduce
 from operator import and_
 from frame_generator import FrameGenerator
@@ -28,20 +29,22 @@ class GraphGenerator():
         g: nx.DiGraph,
         starts: List[int],
         ends: List[int],
-        max_size: int
+        max_size: int,
+        allow_param_in_concat: bool,  # concat + conv などを許すか
     ):
         self.g = g
         self.n_nodes = max(g.nodes)
         self.g_inv = g.reverse()
         self.starts = starts
         self.ends = ends
+        self.allow_param_in_concat = allow_param_in_concat
         self.size_transision_graph = make_size_transition_graph(max_size)
         self.scc_idx, self.g_compressed = self.compress_graph()
         self.g_compressed_inv = self.g_compressed.reverse()
         self.t_sorted = list(nx.topological_sort(self.g_compressed))
 
-    # 縮約されたグラフを作る
     def compress_graph(self):
+        """ 出力サイズが同じ頂点を縮約したグラフを作る """
         g_for_scc = self.g.copy()
 
         # startsの出力サイズは全部同じ
@@ -51,8 +54,14 @@ class GraphGenerator():
         for v in self.g.nodes:
             # vの入力があるnodeとvのoutput_sizeは同じ
             if self.is_concat_node(v):
-                for _, u in self.g_inv.edges([v]):
-                    g_for_scc.add_edge(v, u)
+                if self.allow_param_in_concat:
+                    v_edges = list(self.g_inv.edges([v]))
+                    for (_, f), (__, t) in zip(v_edges[:-1], v_edges[1:]):
+                        g_for_scc.add_edge(f, t)
+                        g_for_scc.add_edge(t, f)
+                else:
+                    for _, u in self.g_inv.edges([v]):
+                        g_for_scc.add_edge(v, u)
 
         scc_idx = [0] * (self.n_nodes + 1)
         scc = strongly_connected_components(g_for_scc)
@@ -111,6 +120,30 @@ class GraphGenerator():
         self.dfs(1, g_labeled, ans)
         return [self.as_size_dict(l) for l in ans]
 
+    def sample_valid_output_size(self, input_size):
+        find = False
+        start = self.t_sorted[0]
+        while not find:
+            g_labeled = nx.DiGraph()
+            g_labeled.add_nodes_from(self.t_sorted)
+            g_labeled.nodes[start]['size'] = input_size
+            for v in self.t_sorted[1:]:
+                is_end = v == self.t_sorted[-1]
+                s = list(self.g_compressed_inv.edges([v]))[0][1]  # どこでもいいのでvに入る頂点をpick up
+                valid_sizes = []  # 割り当て可能なsize
+                for _, sz in self.size_transision_graph.edges([g_labeled.nodes[s]['size']]):
+                    validities = [
+                        self.size_transision_graph.has_edge(g_labeled.nodes[u]['size'], sz) for _, u in self.g_compressed_inv.edges([v])
+                    ]
+                    is_valid_size = reduce(and_, validities)
+                    if is_valid_size:
+                        valid_sizes.append(sz)
+                if len(valid_sizes) == 0: break
+
+                g_labeled.nodes[v]['size'] = random.sample(valid_sizes, 1)[0]
+                if is_end:
+                    return self.as_size_dict([g_labeled.nodes[v]['size'] for v in self.t_sorted])
+
 
 if __name__ == "__main__":
     g, starts, ends = make_graph()
@@ -120,5 +153,5 @@ if __name__ == "__main__":
     for graph in l:
         print("===============")
         print(graph.edges)
-        gg = GraphGenerator(graph, starts, ends, input_size)
+        gg = GraphGenerator(graph, starts, ends, input_size, True)
         gg.list_valid_output_sizes(input_size)

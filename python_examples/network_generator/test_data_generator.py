@@ -24,21 +24,7 @@ def make_graph():
     return g, starts, ends
 
 
-def generate_random_graph(size: int, p: float) -> nx.DiGraph:
-    g = nx.DiGraph()
-    for v in range(1, size):
-        added = []
-        for to in range(v + 1, size + 1):
-            if random.random() < p:
-                g.add_edge(v, to)
-                added.append(to)
-        if len(added) == 0:
-            to = random.randint(v + 1, size)
-            g.add_edge(v, to)
-    return g
-
-
-def generate_graph(size: int, starts: List[int], ends: List[int], p: float) -> nx.DiGraph:
+def generate_random_graph(size: int, starts: List[int], ends: List[int], p: float) -> nx.DiGraph:
     g = nx.DiGraph()
     g_inv = nx.DiGraph()
     for v in range(1, size):
@@ -59,10 +45,51 @@ def generate_graph(size: int, starts: List[int], ends: List[int], p: float) -> n
     return g
 
 
-if __name__ == "__main__":
-    g = generate_graph(15, [1, 2], [15], 0.2)
-    labels = {v: v for v in range(1, 16)}
-    nx.draw(g, labels=labels)
+# TODO 意味わかんなくなってるのでリファクタしたい。
+def generate_graph(n_inputs: int, max_width_count: int) -> nx.DiGraph:
+    """ 実際に入力されるグラフを作成します。
+    Parameters
+    ----------
+    n_inputs : int
+        inputのサイズ
+    max_width_count : int
+        幅が最大(n_inputs+1)になる層の数
+    """
+    l = [n_inputs] + [n_inputs, n_inputs + 1] * max_width_count + list(reversed(range(1, n_inputs + 1)))
+    g = nx.DiGraph()
+    n_layers = len(l)
+    # inputからは下の層だけ
+    g.add_edges_from([(v, v + n_inputs) for v in range(n_inputs)])
+    cumsum = n_inputs
+    for i, n_cur_layer in enumerate(l[1:-1], 1):
+        n_next_layer = l[i + 1]
+        # 一つ下に辺を張る
+        if n_cur_layer < n_next_layer:
+            g.add_edges_from([(cumsum + j, cumsum + j + n_cur_layer) for j in range(n_cur_layer)])
+            g.add_edges_from([(cumsum + j, cumsum + j + n_cur_layer + 1) for j in range(n_cur_layer)])
+        else:
+            g.add_edges_from([(cumsum + j, cumsum + j + n_cur_layer) for j in range(n_next_layer)])
+            g.add_edges_from([(cumsum + j + 1, cumsum + j + n_cur_layer) for j in range(n_next_layer)])
+        # 二つ下に辺を張る
+        if i + 2 < n_layers:
+            n_after_next_layer = l[i + 2]
+            if n_cur_layer <= n_after_next_layer:
+                g.add_edges_from([(cumsum + j, cumsum + j + n_cur_layer + n_next_layer) for j in range(n_cur_layer)])
+            else:
+                g.add_edges_from(
+                    [(cumsum + j + n_cur_layer - n_after_next_layer - 1, cumsum + j + n_cur_layer + n_next_layer)
+                     for j in range(n_after_next_layer)]
+                )
 
-    # nx.draw(g, labels=labels, pos=nx.spectral_layout(g))
+        cumsum += l[i]
+    # outputをくっつける
+    g.add_edge(cumsum, cumsum + 1)
+    print(cumsum)
+    print(g.edges)
+    return g, list(range(n_inputs)), [cumsum + 1]
+
+
+if __name__ == "__main__":
+    g, starts, ends = generate_graph(3, 2)
+    nx.draw_spectral(g)
     plt.show()

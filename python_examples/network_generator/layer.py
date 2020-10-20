@@ -1,13 +1,26 @@
+import torchex.nn as exnn
+import torch.nn as nn
+import torch
+
 from typing import Tuple, List
 import itertools
-
-import torchex.nn as exnn
 
 
 def conv2d(out_channels, kernel_size, stride):
     return exnn.Conv2d(out_channels=out_channels,
                        kernel_size=kernel_size,
                        stride=stride)
+
+
+class ConcatConv(nn.Module):
+    def __init__(self, out_channels, kernel_size, stride):
+        super(ConcatConv, self).__init__()
+        self.conv = conv2d(out_channels, kernel_size, stride)
+        self.out_channels = out_channels
+
+    def forward(self, *x):
+        x1 = torch.cat(x, dim=1)
+        return self.conv(x1)
 
 
 #  https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html

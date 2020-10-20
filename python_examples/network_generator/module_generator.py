@@ -9,59 +9,10 @@ from inferno.extensions.layers.reshape import Concatenate
 import torchex.nn as exnn
 import torch.nn as nn
 
-from layer import find_conv_layer, conv2d
+from layer import find_conv_layer, conv2d, ConcatConv
 
 
-class ModuleGenerator():
-    def __init__(
-        self,
-        g: nx.DiGraph,
-        starts: List[int],
-        ends: List[int],
-        input_size: int,
-        output_sizes: Dict[int, int]
-    ):
-        self.g = g
-        self.g_inv = g.reverse()
-        self.starts = starts
-        self.ends = ends
-        self.input_size = input_size
-        self.output_sizes = output_sizes
-
-    def is_concat_node(self, v: int) -> bool:
-        return len(self.g_inv.edges([v])) >= 2
-
-    def get_node_type(self, v: int) -> str:
-        if self.is_concat_node(v):
-            return "concat"
-
-    def add_type_to_module(self, module: nx.DiGraph):
-        for v in self.g.nodes:
-            if v in self.starts:
-                module.nodes[v]['type'] = 'input'
-            elif self.is_concat_node(v):
-                module.nodes[v]['type'] = 'concat'
-            elif module.nodes[v]['output_size'] == module.nodes[v]['input_size']:
-                module.nodes[v]['type'] = 'linear'
-            else:
-                module.nodes[v]['type'] = 'conv2d'
-
-    def add_sizes_to_module(self, module: nx.DiGraph):
-        for v in self.starts:
-            module.nodes[v]['input_size'] = self.input_size
-        for v in self.g.nodes:
-            module.nodes[v]['output_size'] = self.output_sizes[v]
-        for s, t in self.g.edges:
-            module.nodes[t]['input_size'] = self.output_sizes[s]
-
-    def run(self):
-        module = nx.DiGraph()
-        module.add_edges_from(self.g.edges)
-        self.add_sizes_to_module(module)
-        self.add_type_to_module(module)
-        return module
-
-
+# TODO kernel sizesを渡す
 class NNModuleGenerator():
     def __init__(
         self,
@@ -79,8 +30,11 @@ class NNModuleGenerator():
         self.output_sizes = output_sizes
         self.input_sizes = self.get_input_sizes()
 
+    def is_concat_conv_node(self, v) -> bool:
+        return len(self.g_inv.edges([v])) >= 2 and self.output_sizes[v] != self.input_sizes[v]
+
     def is_concat_node(self, v: int) -> bool:
-        return len(self.g_inv.edges([v])) >= 2
+        return len(self.g_inv.edges([v])) >= 2 and self.output_sizes[v] == self.input_sizes[v]
 
     def get_input_sizes(self):
         input_sizes = {}
@@ -94,6 +48,9 @@ class NNModuleGenerator():
         previous_nodes = [f"{u}" for (_, u) in self.g_inv.edges([v])]
         if v in self.starts:
             module.add_input_node(f"{v}")
+        elif self.is_concat_conv_node(v):
+            k, s = find_conv_layer(self.input_sizes[v], self.output_sizes[v], [1, 2, 3], [1, 2, 3])
+            module.add_node(f"{v}", previous=previous_nodes, module=ConcatConv(out_channels=3, kernel_size=k, stride=s))
         elif self.is_concat_node(v):
             module.add_node(f"{v}", previous=previous_nodes, module=Concatenate())
         elif self.output_sizes[v] == self.input_sizes[v]:
@@ -133,6 +90,5 @@ if __name__ == "__main__":
     g.add_edges_from([(1, 3), (3, 5), (3, 6), (5, 7), (6, 8), (2, 4), (4, 7), (7, 8), (8, 9)])
     input_size = 28
     output_sizes = {1: 28, 3: 27, 5: 13, 6: 13, 2: 28, 4: 13, 7: 13, 8: 13, 9: 11}
-    mg = ModuleGenerator(g, starts, ends, input_size, output_sizes)
+    mg = NNModuleGenerator(g, starts, ends, input_size, output_sizes)
     module = mg.run()
-    plot_graph(module, "name")

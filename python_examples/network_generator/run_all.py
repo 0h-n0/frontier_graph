@@ -2,36 +2,47 @@ import networkx as nx
 
 from typing import List
 
-from test_data_generator import make_graph, generate_graph
+from test_data_generator import make_graph, generate_random_graph, generate_graph
 from frame_generator import FrameGenerator
 from graph_generator import GraphGenerator
-from module_generator import ModuleGenerator, NNModuleGenerator, plot_graph
+from module_generator import NNModuleGenerator, plot_graph
+import torchvision.models as models
 
+from torchviz import make_dot
 import torch
 
 if __name__ == "__main__":
-    n_nodes = 15
-    starts = [1, 2]
-    ends = [n_nodes]
-    g = generate_graph(n_nodes, starts, ends, 0.1)
+    # n_nodes = 15
+    # starts = [1, 2]
+    # ends = [n_nodes]
+    g, starts, ends = generate_graph(2, 4)
     print(g.edges)
     input_size = 28
     fg = FrameGenerator(g, starts, ends)
-    l = fg.list_valid_graph()
-    x = torch.rand(1, 3, 28, 28)
+    x = torch.rand(1, 3, input_size, input_size)
     dryrun_args = (x, x)
     total_found = 0
-    for idx, graph in enumerate(l):
+    for idx in range(10):
+        graph = fg.random_sample()
         print("===============")
         print(graph.edges)
-        gg = GraphGenerator(graph, starts, ends, input_size)
-        s = gg.list_valid_output_sizes(input_size)
+        gg = GraphGenerator(graph, starts, ends, input_size, True)
+        if len(gg.g_compressed.nodes) <= 3:
+            continue
+
+        print(gg.g_compressed.edges)
+        # s = gg.list_valid_output_sizes(input_size)
+        s = [gg.sample_valid_output_size(input_size) for _ in range(100)]
         opt = max(s, key=lambda x: len(set(x.values())) * (max(x.values()) - min(x.values())))
         print(f"found {len(s)} networks")
         mg = NNModuleGenerator(graph, starts, ends, input_size, opt)
+        print(opt)
         module = mg.run()
-        y = module(*dryrun_args)
         print(f"---example---\noutout sizes:{opt}\nnetwork:{module}")
+        out = module(*dryrun_args)
+        dot = make_dot(out)
+        dot.format = 'png'
+        dot.render(f'test_outputs/graph_image_{idx}')
 
         total_found += len(s)
 

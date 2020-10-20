@@ -1,6 +1,7 @@
 import networkx as nx
 
 import copy
+import random
 from typing import List
 
 
@@ -31,6 +32,7 @@ class FrameGenerator():
 
         # 自分への入次数が1以上かstart
         edges = self.g.edges([v])
+        # for edge_selection in range(1, 1 << len(edges)):
         for edge_selection in reversed(list(range(1, 1 << len(edges)))):
             for i, (_, to) in enumerate(edges):
                 if (1 << i) & edge_selection:
@@ -47,3 +49,19 @@ class FrameGenerator():
         start = min(self.starts)
         self.__dfs(start, nx.DiGraph(), nx.DiGraph())
         return self.__valid_graphs
+
+    # 雑に一つsampleする
+    def random_sample(self):
+        g = nx.DiGraph()
+        g_inv = nx.DiGraph()
+        for v in self.g.nodes:
+            if len(g_inv.edges([v])) == 0 and not v in self.starts:
+                continue
+            elif v != max(self.ends):
+                edges = self.g.edges([v])
+                edge_selection = random.randrange(1, 1 << len(edges))
+                for i, (_, to) in enumerate(edges):
+                    if (1 << i) & edge_selection:
+                        g.add_edge(v, to)
+                        g_inv.add_edge(to, v)
+        return g
