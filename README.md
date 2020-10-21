@@ -36,3 +36,4 @@
 
 - `python_examples/network_generator/run_all.py`を叩くと骨格の作成から有効なネットワークの列挙まで走り、`test_outputs`下に生成されたネットワークを可視化して保存します。
   - 可視化のために`dry run`してますがしなければもう少し速いとは思います。
+- 多分追加で`torchviz`の install が必要

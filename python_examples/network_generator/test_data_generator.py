@@ -74,15 +74,15 @@ def generate_graph(n_inputs: int, max_width_count: int) -> nx.DiGraph:
             g.add_edges_from([(cumsum + j, cumsum + j + n_cur_layer) for j in range(n_next_layer)])
             g.add_edges_from([(cumsum + j + 1, cumsum + j + n_cur_layer) for j in range(n_next_layer)])
         # 二つ下に辺を張る
-        if i + 2 < n_layers:
-            n_after_next_layer = l[i + 2]
-            if n_cur_layer <= n_after_next_layer:
-                g.add_edges_from([(cumsum + j, cumsum + j + n_cur_layer + n_next_layer) for j in range(n_cur_layer)])
-            else:
-                g.add_edges_from(
-                    [(cumsum + j + n_cur_layer - n_after_next_layer - 1, cumsum + j + n_cur_layer + n_next_layer)
-                     for j in range(n_after_next_layer)]
-                )
+        # if i + 2 < n_layers:
+        #     n_after_next_layer = l[i + 2]
+        #     if n_cur_layer <= n_after_next_layer:
+        #         g.add_edges_from([(cumsum + j, cumsum + j + n_cur_layer + n_next_layer) for j in range(n_cur_layer)])
+        #     else:
+        #         g.add_edges_from(
+        #             [(cumsum + j + n_cur_layer - n_after_next_layer - 1, cumsum + j + n_cur_layer + n_next_layer)
+        #              for j in range(n_after_next_layer)]
+        #         )
 
         cumsum += l[i]
     # outputをくっつける

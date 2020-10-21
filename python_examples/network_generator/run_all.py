@@ -12,7 +12,7 @@ from torchviz import make_dot
 import torch
 
 if __name__ == "__main__":
-    g, starts, ends = generate_graph(3, 2)
+    g, starts, ends = generate_graph(4, 3)
     print(g.edges)
     input_size = 28
     fg = FrameGenerator(g, starts, ends)
