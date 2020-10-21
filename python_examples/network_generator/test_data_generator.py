@@ -25,6 +25,9 @@ def make_graph():
 
 
 def generate_random_graph(size: int, starts: List[int], ends: List[int], p: float) -> nx.DiGraph:
+    """
+    確率pくらいで辺を張ることでグラフを作成します。
+    """
     g = nx.DiGraph()
     g_inv = nx.DiGraph()
     for v in range(1, size):
@@ -84,8 +87,6 @@ def generate_graph(n_inputs: int, max_width_count: int) -> nx.DiGraph:
         cumsum += l[i]
     # outputをくっつける
     g.add_edge(cumsum, cumsum + 1)
-    print(cumsum)
-    print(g.edges)
     return g, list(range(n_inputs)), [cumsum + 1]
 
 

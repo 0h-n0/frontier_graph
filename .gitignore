@@ -111,3 +111,4 @@ exp/*
 .vscode
 **/my_test/
 memo.md
+test_outputs/

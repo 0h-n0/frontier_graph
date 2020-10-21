@@ -12,20 +12,15 @@ from torchviz import make_dot
 import torch
 
 if __name__ == "__main__":
-    # n_nodes = 15
-    # starts = [1, 2]
-    # ends = [n_nodes]
-    g, starts, ends = generate_graph(2, 4)
+    g, starts, ends = generate_graph(3, 2)
     print(g.edges)
     input_size = 28
     fg = FrameGenerator(g, starts, ends)
     x = torch.rand(1, 3, input_size, input_size)
-    dryrun_args = (x, x)
+    dryrun_args = (x,) * len(starts)
     total_found = 0
-    for idx in range(10):
+    for idx in range(100):
         graph = fg.random_sample()
-        print("===============")
-        print(graph.edges)
         gg = GraphGenerator(graph, starts, ends, input_size, True)
         if len(gg.g_compressed.nodes) <= 3:
             continue
@@ -43,7 +38,6 @@ if __name__ == "__main__":
         dot = make_dot(out)
         dot.format = 'png'
         dot.render(f'test_outputs/graph_image_{idx}')
-
         total_found += len(s)
 
     print(f"found total {total_found} graphs")

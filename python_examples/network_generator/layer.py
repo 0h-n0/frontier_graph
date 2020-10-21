@@ -16,7 +16,6 @@ class ConcatConv(nn.Module):
     def __init__(self, out_channels, kernel_size, stride):
         super(ConcatConv, self).__init__()
         self.conv = conv2d(out_channels, kernel_size, stride)
-        self.out_channels = out_channels
 
     def forward(self, *x):
         x1 = torch.cat(x, dim=1)
