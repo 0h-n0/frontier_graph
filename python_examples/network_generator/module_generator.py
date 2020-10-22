@@ -9,10 +9,9 @@ from inferno.extensions.layers.reshape import Concatenate
 import torchex.nn as exnn
 import torch.nn as nn
 
-from layer import find_conv_layer, conv2d, ConcatConv
+from layer import find_conv_layer, conv2d, ConcatConv, FlattenLinear
 
 
-# TODO kernel sizesを渡す
 class NNModuleGenerator():
     def __init__(
         self,
@@ -20,7 +19,9 @@ class NNModuleGenerator():
         starts: List[int],
         ends: List[int],
         input_size: int,
-        output_sizes: Dict[int, int]
+        output_sizes: Dict[int, int],
+        kernel_sizes: List[int],
+        strides: List[int]
     ):
         self.g = g
         self.g_inv = g.reverse()
@@ -29,6 +30,8 @@ class NNModuleGenerator():
         self.input_size = input_size
         self.output_sizes = output_sizes
         self.input_sizes = self.get_input_sizes()
+        self.kernel_sizes = kernel_sizes
+        self.strides = strides
 
     def is_concat_conv_node(self, v) -> bool:
         return len(self.g_inv.edges([v])) >= 2 and self.output_sizes[v] != self.input_sizes[v]
@@ -48,15 +51,17 @@ class NNModuleGenerator():
         previous_nodes = [f"{u}" for (_, u) in self.g_inv.edges([v])]
         if v in self.starts:
             module.add_input_node(f"{v}")
+        elif v in self.ends:
+            module.add_node(f"{v}", previous=previous_nodes, module=FlattenLinear(10))
         elif self.is_concat_conv_node(v):
-            k, s = find_conv_layer(self.input_sizes[v], self.output_sizes[v], [1, 2, 3], [1, 2, 3])
+            k, s = find_conv_layer(self.input_sizes[v], self.output_sizes[v], self.kernel_sizes, self.strides)
             module.add_node(f"{v}", previous=previous_nodes, module=ConcatConv(out_channels=3, kernel_size=k, stride=s))
         elif self.is_concat_node(v):
             module.add_node(f"{v}", previous=previous_nodes, module=Concatenate())
         elif self.output_sizes[v] == self.input_sizes[v]:
             module.add_node(f"{v}", previous=previous_nodes, module=nn.ReLU())
         else:
-            k, s = find_conv_layer(self.input_sizes[v], self.output_sizes[v], [1, 2, 3], [1, 2, 3])
+            k, s = find_conv_layer(self.input_sizes[v], self.output_sizes[v], self.kernel_sizes, self.strides)
             module.add_node(f"{v}", previous=previous_nodes, module=conv2d(out_channels=3, kernel_size=k, stride=s))
 
     def run(self):
@@ -65,30 +70,3 @@ class NNModuleGenerator():
             self.add_layer(v, module)
         module.add_output_node('output', previous=[f"{t}" for t in self.ends])
         return module
-
-
-def plot_graph(module: nx.Graph, file_name: str):
-    input_sizes = nx.get_node_attributes(module, 'input_size')
-    output_sizes = nx.get_node_attributes(module, 'output_size')
-    layer_types = nx.get_node_attributes(module, 'type')
-    labels = {
-        v: f"index:{v}\n" +
-        f"input:({input_sizes[v]}, {input_sizes[v]})\n" +
-        f"output:({output_sizes[v]}, {output_sizes[v]})\n" +
-        f"type:{layer_types[v]}" for v in module.nodes
-    }
-    nx.draw(module, pos=nx.spectral_layout(module), labels=labels, font_size=6, node_shape="s")
-    # nx.draw(g, labels=labels, pos=nx.spectral_layout(g))
-    plt.savefig(f"tests/my_test/images/{file_name}.png")
-    plt.clf()
-
-
-if __name__ == "__main__":
-    g = nx.DiGraph()
-    starts = [1, 2]
-    ends = [9, ]
-    g.add_edges_from([(1, 3), (3, 5), (3, 6), (5, 7), (6, 8), (2, 4), (4, 7), (7, 8), (8, 9)])
-    input_size = 28
-    output_sizes = {1: 28, 3: 27, 5: 13, 6: 13, 2: 28, 4: 13, 7: 13, 8: 13, 9: 11}
-    mg = NNModuleGenerator(g, starts, ends, input_size, output_sizes)
-    module = mg.run()

@@ -22,6 +22,19 @@ class ConcatConv(nn.Module):
         return self.conv(x1)
 
 
+class FlattenLinear(nn.Module):
+    def __init__(self, out_channels):
+        super(FlattenLinear, self).__init__()
+        self.out_channels = out_channels
+        self.linear = exnn.Linear(self.out_channels)
+
+    def forward(self, x):
+        if len(x.shape) == 4:
+            B, _, _, _ = x.shape
+            x = x.reshape(B, -1)
+        return self.linear(x)
+
+
 #  https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html
 def conv2d_output_size(input_size, out_channels, kernel_size, stride, padding=0, dilation=1):
     _, h_in, w_in = input_size

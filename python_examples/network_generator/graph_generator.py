@@ -13,11 +13,10 @@ from operator import and_
 from frame_generator import FrameGenerator
 
 
-def make_size_transition_graph(max_size: int):
+def make_size_transition_graph(max_size: int, kernel_sizes: List[int], strides: List[int]):
     g = nx.DiGraph()
-    l = [1, 2, 3]
     for x_in in range(1, max_size + 1):
-        for s, k in itertools.product(l, l):
+        for s, k in itertools.product(kernel_sizes, strides):
             x_out = conv_output_size(x_in, k, s)
             if x_out > 0: g.add_edge(x_in, x_out)
     return g
@@ -31,6 +30,8 @@ class GraphGenerator():
         ends: List[int],
         max_size: int,
         allow_param_in_concat: bool,  # concat + conv などを許すか
+        kernel_sizes: List[int],
+        strides: List[int]
     ):
         self.g = g
         self.n_nodes = max(g.nodes)
@@ -38,7 +39,7 @@ class GraphGenerator():
         self.starts = starts
         self.ends = ends
         self.allow_param_in_concat = allow_param_in_concat
-        self.size_transision_graph = make_size_transition_graph(max_size)
+        self.size_transision_graph = make_size_transition_graph(max_size, kernel_sizes, strides)
         self.scc_idx, self.g_compressed = self.compress_graph()
         self.g_compressed_inv = self.g_compressed.reverse()
         self.t_sorted = list(nx.topological_sort(self.g_compressed))
@@ -143,15 +144,3 @@ class GraphGenerator():
                 g_labeled.nodes[v]['size'] = random.sample(valid_sizes, 1)[0]
                 if is_end:
                     return self.as_size_dict([g_labeled.nodes[v]['size'] for v in self.t_sorted])
-
-
-if __name__ == "__main__":
-    g, starts, ends = make_graph()
-    input_size = 28
-    fg = FrameGenerator(g, starts, ends)
-    l = fg.list_valid_graph()
-    for graph in l:
-        print("===============")
-        print(graph.edges)
-        gg = GraphGenerator(graph, starts, ends, input_size, True)
-        gg.list_valid_output_sizes(input_size)
