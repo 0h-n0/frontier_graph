@@ -21,7 +21,8 @@ class NNModuleGenerator():
         input_size: int,
         output_sizes: Dict[int, int],
         kernel_sizes: List[int],
-        strides: List[int]
+        strides: List[int],
+        output_channel_candidates: List[int]
     ):
         self.g = g
         self.g_inv = g.reverse()
@@ -32,6 +33,7 @@ class NNModuleGenerator():
         self.input_sizes = self.get_input_sizes()
         self.kernel_sizes = kernel_sizes
         self.strides = strides
+        self.output_channels = self.__calc_output_channels(output_channel_candidates)
 
     def is_concat_conv_node(self, v) -> bool:
         return len(self.g_inv.edges([v])) >= 2 and self.output_sizes[v] != self.input_sizes[v]
@@ -49,20 +51,39 @@ class NNModuleGenerator():
 
     def add_layer(self, v: int, module):
         previous_nodes = [f"{u}" for (_, u) in self.g_inv.edges([v])]
+        out_channels = self.output_channels[v]
         if v in self.starts:
             module.add_input_node(f"{v}")
         elif v in self.ends:
             module.add_node(f"{v}", previous=previous_nodes, module=FlattenLinear(10))
         elif self.is_concat_conv_node(v):
             k, s = find_conv_layer(self.input_sizes[v], self.output_sizes[v], self.kernel_sizes, self.strides)
-            module.add_node(f"{v}", previous=previous_nodes, module=ConcatConv(out_channels=3, kernel_size=k, stride=s))
+            module.add_node(
+                f"{v}", previous=previous_nodes, module=ConcatConv(out_channels=out_channels, kernel_size=k, stride=s))
         elif self.is_concat_node(v):
             module.add_node(f"{v}", previous=previous_nodes, module=Concatenate())
         elif self.output_sizes[v] == self.input_sizes[v]:
             module.add_node(f"{v}", previous=previous_nodes, module=nn.ReLU())
         else:
             k, s = find_conv_layer(self.input_sizes[v], self.output_sizes[v], self.kernel_sizes, self.strides)
-            module.add_node(f"{v}", previous=previous_nodes, module=conv2d(out_channels=3, kernel_size=k, stride=s))
+            module.add_node(
+                f"{v}", previous=previous_nodes, module=conv2d(out_channels=out_channels, kernel_size=k, stride=s))
+
+    def __calc_output_channels(self, output_channel_candidates: List[int]):
+        """
+        親のoutput_channelsの和以下のものがcandidatesにあったらその内最大のものを採用。
+        そうでないときはmin(candidates)を採用
+        """
+        output_channels = {v: 3 for v in self.starts}
+        self.g_inv = self.g.reverse()
+        for v in sorted(list(self.g.nodes)):
+            if v in self.starts: continue
+            sum_inputs = sum([output_channels[u] for (_, u) in self.g_inv.edges(v)])
+            if sum_inputs < min(output_channel_candidates):
+                output_channels[v] = min(output_channel_candidates)
+            else:
+                output_channels[v] = max(filter(lambda x: x <= sum_inputs, output_channel_candidates))
+        return output_channels
 
     def run(self):
         module = Graph()

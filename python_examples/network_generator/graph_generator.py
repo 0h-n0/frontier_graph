@@ -23,6 +23,10 @@ def make_size_transition_graph(max_size: int, kernel_sizes: List[int], strides: 
 
 
 class GraphGenerator():
+    """
+    与えられるグラフについて、各nodeに有効な出力サイズを割り振ります。
+    """
+
     def __init__(
         self,
         g: nx.DiGraph,

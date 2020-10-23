@@ -15,6 +15,7 @@ if __name__ == "__main__":
     input_size = 28
     kernel_sizes = [1, 2, 3]
     strides = [1, 2, 3]
+    output_channel_candidates = [32, 64, 128, 192]
 
     fg = FrameGenerator(g, starts, ends)
     x = torch.rand(1, 3, input_size, input_size)
@@ -28,7 +29,7 @@ if __name__ == "__main__":
 
         output_sizes = [gg.sample_valid_output_size(input_size) for _ in range(100)]
         opt = max(output_sizes, key=lambda x: len(set(x.values())) * (max(x.values()) - min(x.values())))
-        mg = NNModuleGenerator(frame, starts, ends, input_size, opt, kernel_sizes, strides)
+        mg = NNModuleGenerator(frame, starts, ends, input_size, opt, kernel_sizes, strides, output_channel_candidates)
         module = mg.run()
 
         print(gg.g_compressed.edges)
