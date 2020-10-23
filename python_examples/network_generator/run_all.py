@@ -6,7 +6,6 @@ from test_data_generator import make_graph, generate_random_graph, generate_grap
 from frame_generator import FrameGenerator
 from graph_generator import GraphGenerator
 from module_generator import NNModuleGenerator
-import torchvision.models as models
 
 from torchviz import make_dot
 import torch
@@ -36,7 +35,7 @@ if __name__ == "__main__":
         print(f"found {len(output_sizes)} networks")
         print(opt)
         print(f"---example---\noutout sizes:{opt}\nnetwork:{module}")
-        # out = module(*dryrun_args)
-        # dot = make_dot(out)
-        # dot.format = 'png'
-        # dot.render(f'test_outputs/graph_image_{idx}')
+        out = module(*dryrun_args)
+        dot = make_dot(out)
+        dot.format = 'png'
+        dot.render(f'test_outputs/graph_image_{idx}')
