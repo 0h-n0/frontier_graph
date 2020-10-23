@@ -63,6 +63,9 @@ def conv_output_size(input_size, kernel_size, stride, padding=0, dilation=1):
 
 
 def find_conv_layer(input_size, output_size, kernel_sizes: List[int], strides: List[int]) -> Tuple[int, int]:
+    """
+    見つからなかったときはraiseしますm(_ _)m
+    """
     for k, s in itertools.product(kernel_sizes, strides):
         if conv_output_size(input_size, k, s) == output_size:
             return k, s

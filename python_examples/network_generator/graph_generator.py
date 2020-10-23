@@ -51,11 +51,6 @@ class GraphGenerator():
     def compress_graph(self):
         """ 出力サイズが同じ頂点を縮約したグラフを作る """
         g_for_scc = self.g.copy()
-
-        # startsの出力サイズは全部同じ
-        for u, v in zip(self.starts[:-1], self.starts[1:]):
-            g_for_scc.add_edges_from([(u, v), (v, u)])
-
         for v in self.g.nodes:
             # vの入力があるnodeとvのoutput_sizeは同じ
             if self.is_concat_node(v):
@@ -114,6 +109,7 @@ class GraphGenerator():
             size_dict[v] = size_list[idx]
         return size_dict
 
+    # TODO 動かなくなっているので直す
     def list_valid_output_sizes(self, input_size: int):
         if len(self.t_sorted) == 1:
             return [self.as_size_dict([input_size])]
@@ -125,14 +121,22 @@ class GraphGenerator():
         self.dfs(1, g_labeled, ans)
         return [self.as_size_dict(l) for l in ans]
 
-    def sample_valid_output_size(self, input_size):
+    # TODO 最大の失敗回数を指定したい
+    def sample_valid_output_size(self, input_sizes: List[int], max_failures=100):
+        """
+        有効な出力サイズを探して１つ返します。
+        max_failures回失敗したら諦めます
+        """
+        assert len(input_sizes) == len(self.starts)
         find = False
-        start = self.t_sorted[0]
+        starts = [self.scc_idx[s] for s in self.starts]
         while not find:
             g_labeled = nx.DiGraph()
             g_labeled.add_nodes_from(self.t_sorted)
-            g_labeled.nodes[start]['size'] = input_size
-            for v in self.t_sorted[1:]:
+            for v, s in zip(starts, input_sizes): g_labeled.nodes[v]['size'] = s
+
+            for v in self.t_sorted:
+                if v in starts: continue
                 is_end = v == self.t_sorted[-1]
                 s = list(self.g_compressed_inv.edges([v]))[0][1]  # どこでもいいのでvに入る頂点をpick up
                 valid_sizes = []  # 割り当て可能なsize
@@ -143,8 +147,11 @@ class GraphGenerator():
                     is_valid_size = reduce(and_, validities)
                     if is_valid_size:
                         valid_sizes.append(sz)
-                if len(valid_sizes) == 0: break
+                if len(valid_sizes) == 0:
+                    # print(f"failed on {v}")
+                    break
 
                 g_labeled.nodes[v]['size'] = random.sample(valid_sizes, 1)[0]
+                # print(f"{v}: {g_labeled.nodes[v]['size']}", end="")
                 if is_end:
                     return self.as_size_dict([g_labeled.nodes[v]['size'] for v in self.t_sorted])
