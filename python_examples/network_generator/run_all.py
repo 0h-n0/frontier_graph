@@ -11,7 +11,7 @@ from torchviz import make_dot
 import torch
 
 if __name__ == "__main__":
-    g, starts, ends = generate_graph(4, 2)
+    g, starts, ends = generate_graph(4, 3)
     kernel_sizes = [1, 2, 3]
     strides = [1, 2, 3]
     output_channel_candidates = [32, 64, 128, 192]
@@ -26,7 +26,14 @@ if __name__ == "__main__":
         # あまりに単純な場合は省く
         if len(gg.g_compressed.nodes) <= 3: continue
 
-        output_sizes = [gg.sample_valid_output_size(input_sizes) for _ in range(100)]
+        output_sizes = []
+        for _ in range(100):
+            result = gg.sample_valid_output_size(input_sizes)
+            if result == False: break
+            else: output_sizes.append(result)
+
+        if len(output_sizes) == 0: continue
+
         opt = max(output_sizes, key=lambda x: len(set(x.values())) * (max(x.values()) - min(x.values())))
         mg = NNModuleGenerator(frame, starts, ends, input_sizes, opt, kernel_sizes, strides, output_channel_candidates)
         module = mg.run()

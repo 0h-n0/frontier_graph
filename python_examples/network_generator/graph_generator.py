@@ -121,15 +121,15 @@ class GraphGenerator():
         self.dfs(1, g_labeled, ans)
         return [self.as_size_dict(l) for l in ans]
 
-    # TODO 最大の失敗回数を指定したい
     def sample_valid_output_size(self, input_sizes: List[int], max_failures=100):
         """
         有効な出力サイズを探して１つ返します。
-        max_failures回失敗したら諦めます
+        max_failures回失敗したら諦めてFalseを返します
         """
         assert len(input_sizes) == len(self.starts)
         find = False
         starts = [self.scc_idx[s] for s in self.starts]
+        fail_count = 0
         while not find:
             g_labeled = nx.DiGraph()
             g_labeled.add_nodes_from(self.t_sorted)
@@ -148,7 +148,9 @@ class GraphGenerator():
                     if is_valid_size:
                         valid_sizes.append(sz)
                 if len(valid_sizes) == 0:
+                    fail_count += 1
                     # print(f"failed on {v}")
+                    if fail_count >= max_failures: return False
                     break
 
                 g_labeled.nodes[v]['size'] = random.sample(valid_sizes, 1)[0]
