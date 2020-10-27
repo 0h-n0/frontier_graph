@@ -112,3 +112,4 @@ exp/*
 **/my_test/
 memo.md
 test_outputs/
+python_examples/network_generator/test.py

@@ -14,13 +14,21 @@ from layer import find_conv_layer, conv2d, ConcatConv, FlattenLinear
 
 # constructorがまあまあなロジック持ってるけどどうしよう
 class NNModuleGenerator():
+    """
+    Attributes(分かりにくそうなもののみ記載):
+       network_input_sizes: (各入力のnodeについて)nodeの番号がkey, 入力サイズがvalueのdict 
+       node_output_sizes: (各nodeについて)nodeの番号がkey, 出力サイズがvalueのdict 
+       network_output_sizes: (各出力のnodeについて)nodeの番号がkey, 出力サイズがvalueのdict 
+    """
+
     def __init__(
         self,
         g: nx.DiGraph,
         starts: List[int],
         ends: List[int],
-        network_input_sizes: List[int],
+        network_input_sizes: Dict[int, int],
         node_output_sizes: Dict[int, int],
+        network_output_sizes: Dict[int, int],
         kernel_sizes: List[int],
         strides: List[int],
         output_channel_candidates: List[int]
@@ -30,24 +38,25 @@ class NNModuleGenerator():
         self.starts = starts
         self.ends = ends
         self.network_input_sizes = network_input_sizes
-        self.output_sizes = node_output_sizes
+        self.node_output_sizes = node_output_sizes
+        self.network_output_sizes = network_output_sizes
         self.node_input_sizes = self.get_input_sizes()
         self.kernel_sizes = kernel_sizes
         self.strides = strides
         self.output_channels = self.__calc_output_channels(output_channel_candidates)
 
     def is_concat_conv_node(self, v) -> bool:
-        return len(self.g_inv.edges([v])) >= 2 and self.output_sizes[v] != self.node_input_sizes[v]
+        return len(self.g_inv.edges([v])) >= 2 and self.node_output_sizes[v] != self.node_input_sizes[v]
 
     def is_concat_node(self, v: int) -> bool:
-        return len(self.g_inv.edges([v])) >= 2 and self.output_sizes[v] == self.node_input_sizes[v]
+        return len(self.g_inv.edges([v])) >= 2 and self.node_output_sizes[v] == self.node_input_sizes[v]
 
     def get_input_sizes(self):
         input_sizes = {}
-        for v, s in zip(self.starts, self.network_input_sizes):
+        for v, s in self.network_input_sizes.items():
             input_sizes[v] = s
         for s, t in self.g.edges:
-            input_sizes[t] = self.output_sizes[s]
+            input_sizes[t] = self.node_output_sizes[s]
         return input_sizes
 
     def add_layer(self, v: int, module):
@@ -56,17 +65,17 @@ class NNModuleGenerator():
         if v in self.starts:
             module.add_input_node(f"{v}")
         elif v in self.ends:
-            module.add_node(f"{v}", previous=previous_nodes, module=FlattenLinear(10))
+            module.add_node(f"{v}", previous=previous_nodes, module=FlattenLinear(self.network_output_sizes[v]))
         elif self.is_concat_conv_node(v):
-            k, s = find_conv_layer(self.node_input_sizes[v], self.output_sizes[v], self.kernel_sizes, self.strides)
+            k, s = find_conv_layer(self.node_input_sizes[v], self.node_output_sizes[v], self.kernel_sizes, self.strides)
             module.add_node(
                 f"{v}", previous=previous_nodes, module=ConcatConv(out_channels=out_channels, kernel_size=k, stride=s))
         elif self.is_concat_node(v):
             module.add_node(f"{v}", previous=previous_nodes, module=Concatenate())
-        elif self.output_sizes[v] == self.node_input_sizes[v]:
+        elif self.node_output_sizes[v] == self.node_input_sizes[v]:
             module.add_node(f"{v}", previous=previous_nodes, module=nn.ReLU())
         else:
-            k, s = find_conv_layer(self.node_input_sizes[v], self.output_sizes[v], self.kernel_sizes, self.strides)
+            k, s = find_conv_layer(self.node_input_sizes[v], self.node_output_sizes[v], self.kernel_sizes, self.strides)
             module.add_node(
                 f"{v}", previous=previous_nodes, module=conv2d(out_channels=out_channels, kernel_size=k, stride=s))
 
@@ -90,5 +99,6 @@ class NNModuleGenerator():
         module = Graph()
         for v in sorted(list(self.g.nodes)):
             self.add_layer(v, module)
-        module.add_output_node('output', previous=[f"{t}" for t in self.ends])
+        module.add_node('concat', previous=[f"{t}" for t in self.ends], module=Concatenate())
+        module.add_output_node('output', previous='concat')
         return module

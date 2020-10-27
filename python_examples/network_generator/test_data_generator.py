@@ -48,28 +48,30 @@ def generate_random_graph(size: int, starts: List[int], ends: List[int], p: floa
     return g
 
 
-# TODO 意味わかんなくなってるのでリファクタしたい。
-def generate_graph(n_inputs: int, max_width_count: int) -> nx.DiGraph:
+def generate_graph(n_inputs: int, n_outputs: int, max_width: int, max_width_count: int):
     """ 実際に入力されるグラフを作成します。
     Parameters
     ----------
     n_inputs : int
-        inputのサイズ
+        inputのnode数
+    n_outputs : int
+        outputのnode数
     max_width_count : int
         幅が最大(n_inputs+1)になる層の数
     """
-    l = [n_inputs] + [n_inputs, n_inputs + 1] * max_width_count + list(reversed(range(1, n_inputs + 1)))
+    assert max_width > n_inputs
+    assert max_width > n_outputs
+    l = [n_inputs] + list(range(n_inputs, max_width - 1)) + [max_width - 1, max_width] * max_width_count +\
+        list(reversed(range(n_outputs, max_width))) + [n_outputs]
     g = nx.DiGraph()
-    n_layers = len(l)
-    # inputからは下の層だけ
-    g.add_edges_from([(v, v + n_inputs) for v in range(n_inputs)])
-    cumsum = n_inputs
-    for i, n_cur_layer in enumerate(l[1:-1], 1):
-        n_next_layer = l[i + 1]
+    cumsum = 0
+    for n_cur_layer, n_next_layer in zip(l[0:-1], l[1:]):
         # 一つ下に辺を張る
         if n_cur_layer < n_next_layer:
             g.add_edges_from([(cumsum + j, cumsum + j + n_cur_layer) for j in range(n_cur_layer)])
             g.add_edges_from([(cumsum + j, cumsum + j + n_cur_layer + 1) for j in range(n_cur_layer)])
+        elif n_cur_layer == n_next_layer:
+            g.add_edges_from([(cumsum + j, cumsum + j + n_cur_layer) for j in range(n_cur_layer)])
         else:
             g.add_edges_from([(cumsum + j, cumsum + j + n_cur_layer) for j in range(n_next_layer)])
             g.add_edges_from([(cumsum + j + 1, cumsum + j + n_cur_layer) for j in range(n_next_layer)])
@@ -83,14 +85,13 @@ def generate_graph(n_inputs: int, max_width_count: int) -> nx.DiGraph:
         #             [(cumsum + j + n_cur_layer - n_after_next_layer - 1, cumsum + j + n_cur_layer + n_next_layer)
         #              for j in range(n_after_next_layer)]
         #         )
+        cumsum += n_cur_layer
 
-        cumsum += l[i]
-    # outputをくっつける
-    g.add_edge(cumsum, cumsum + 1)
-    return g, list(range(n_inputs)), [cumsum + 1]
+    starts = list(range(0, n_inputs))
+    ends = list(range(cumsum, cumsum + n_outputs))
+    return g, starts, ends
 
 
 if __name__ == "__main__":
-    g, starts, ends = generate_graph(3, 2)
-    nx.draw_spectral(g)
-    plt.show()
+    g, s, t = generate_graph(4, 4, 5, 2)
+    print(s, t)

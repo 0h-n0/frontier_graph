@@ -4,45 +4,48 @@ from typing import List
 
 from test_data_generator import generate_graph
 from frame_generator import FrameGenerator
-from graph_generator import GraphGenerator
+from output_size_searcher import OutputSizeSearcher
 from module_generator import NNModuleGenerator
 
 from torchviz import make_dot
 import torch
 
 if __name__ == "__main__":
-    g, starts, ends = generate_graph(4, 3)
+    g, starts, ends = generate_graph(1, 12, 13, 1)
     kernel_sizes = [1, 2, 3]
     strides = [1, 2, 3]
     output_channel_candidates = [32, 64, 128, 192]
-    input_sizes = [28, 28, 56, 112]
+    network_input_sizes = {v: 224 for v in starts}
+    network_output_sizes = {v: 1 for v in ends}
 
     fg = FrameGenerator(g, starts, ends)
-    dryrun_args = tuple([torch.rand(1, 3, s, s) for s in input_sizes])
+    dryrun_args = tuple([torch.rand(1, 3, s, s) for s in network_input_sizes.values()])
 
     for idx in range(100):
-        frame = fg.random_sample()
-        gg = GraphGenerator(frame, starts, ends, max(input_sizes), True, kernel_sizes, strides)
+        frame = fg.sample_graph()
+        print(frame.edges)
+        oss = OutputSizeSearcher(frame, starts, ends, max(network_input_sizes.values()), True, kernel_sizes, strides)
         # あまりに単純な場合は省く
-        if len(gg.g_compressed.nodes) <= 3: continue
+        if len(oss.g_compressed.nodes) <= 3: continue
 
         output_sizes = []
         for _ in range(100):
-            result = gg.sample_valid_output_size(input_sizes)
+            result = oss.sample_valid_output_size(network_input_sizes)
             if result == False: break
             else: output_sizes.append(result)
 
         if len(output_sizes) == 0: continue
 
         opt = max(output_sizes, key=lambda x: len(set(x.values())) * (max(x.values()) - min(x.values())))
-        mg = NNModuleGenerator(frame, starts, ends, input_sizes, opt, kernel_sizes, strides, output_channel_candidates)
+        mg = NNModuleGenerator(frame, starts, ends, network_input_sizes, opt, network_output_sizes,
+                               kernel_sizes, strides, output_channel_candidates)
         module = mg.run()
 
-        print(gg.g_compressed.edges)
+        print(oss.g_compressed.edges)
         print(f"found {len(output_sizes)} networks")
         print(opt)
         print(f"---example---\noutout sizes:{opt}\nnetwork:{module}")
-        out = module(*dryrun_args)
-        dot = make_dot(out)
-        dot.format = 'png'
-        dot.render(f'test_outputs/graph_image_{idx}')
+        # out = module(*dryrun_args)
+        # dot = make_dot(out)
+        # dot.format = 'png'
+        # dot.render(f'test_outputs/graph_image_{idx}')
