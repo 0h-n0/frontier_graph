@@ -9,7 +9,7 @@ from inferno.extensions.layers.reshape import Concatenate
 import torchex.nn as exnn
 import torch.nn as nn
 
-from layer import find_conv_layer, conv2d, ConcatConv, FlattenLinear
+from layer import find_conv_layer, conv2d, ConcatConv, FlattenLinear, ConcatFlatten
 
 
 # constructorがまあまあなロジック持ってるけどどうしよう
@@ -28,6 +28,7 @@ class NNModuleGenerator():
         ends: List[int],
         network_input_sizes: Dict[int, int],
         node_output_sizes: Dict[int, int],
+        node_output_dimensions: Dict[int, int],
         network_output_sizes: Dict[int, int],
         kernel_sizes: List[int],
         strides: List[int],
@@ -39,17 +40,29 @@ class NNModuleGenerator():
         self.ends = ends
         self.network_input_sizes = network_input_sizes
         self.node_output_sizes = node_output_sizes
+        self.node_output_dimensions = node_output_dimensions
         self.network_output_sizes = network_output_sizes
         self.node_input_sizes = self.get_input_sizes()
+        self.node_input_dimensions = self.get_input_dimensions()
         self.kernel_sizes = kernel_sizes
         self.strides = strides
         self.output_channels = self.__calc_output_channels(output_channel_candidates)
+
+    # TODO この辺りは順番次第では動かないので直す
+    def is_concat_flatten_node(self, v) -> bool:
+        return len(self.g_inv.edges([v])) >= 2 and self.node_output_dimensions[v] != self.node_input_dimensions[v]
+
+    def is_flatten_node(self, v) -> bool:
+        return len(self.g_inv.edges([v])) <= 1 and self.node_output_dimensions[v] != self.node_input_dimensions[v]
 
     def is_concat_conv_node(self, v) -> bool:
         return len(self.g_inv.edges([v])) >= 2 and self.node_output_sizes[v] != self.node_input_sizes[v]
 
     def is_concat_node(self, v: int) -> bool:
         return len(self.g_inv.edges([v])) >= 2 and self.node_output_sizes[v] == self.node_input_sizes[v]
+
+    def is_linear_node(self, v: int) -> bool:
+        return self.node_output_dimensions[v] == 1 and self.node_input_dimensions[v] == 1
 
     def get_input_sizes(self):
         input_sizes = {}
@@ -59,6 +72,14 @@ class NNModuleGenerator():
             input_sizes[t] = self.node_output_sizes[s]
         return input_sizes
 
+    def get_input_dimensions(self):
+        input_dimensions = {}
+        for v in self.starts:
+            input_dimensions[v] = 4
+        for s, t in self.g.edges:
+            input_dimensions[t] = self.node_output_dimensions[s]
+        return input_dimensions
+
     def add_layer(self, v: int, module):
         previous_nodes = [f"{u}" for (_, u) in self.g_inv.edges([v])]
         out_channels = self.output_channels[v]
@@ -66,12 +87,18 @@ class NNModuleGenerator():
             module.add_input_node(f"{v}")
         elif v in self.ends:
             module.add_node(f"{v}", previous=previous_nodes, module=FlattenLinear(self.network_output_sizes[v]))
+        elif self.is_concat_flatten_node(v):
+            module.add_node(f"{v}", previous=previous_nodes, module=ConcatFlatten(out_channels))
+        elif self.is_flatten_node(v):
+            module.add_node(f"{v}", previous=previous_nodes, module=FlattenLinear(out_channels))
         elif self.is_concat_conv_node(v):
             k, s = find_conv_layer(self.node_input_sizes[v], self.node_output_sizes[v], self.kernel_sizes, self.strides)
             module.add_node(
                 f"{v}", previous=previous_nodes, module=ConcatConv(out_channels=out_channels, kernel_size=k, stride=s))
         elif self.is_concat_node(v):
             module.add_node(f"{v}", previous=previous_nodes, module=Concatenate())
+        elif self.is_linear_node(v):
+            module.add_node(f"{v}", previous=previous_nodes, module=exnn.Linear(out_channels))
         elif self.node_output_sizes[v] == self.node_input_sizes[v]:
             module.add_node(f"{v}", previous=previous_nodes, module=nn.ReLU())
         else:

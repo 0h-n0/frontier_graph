@@ -9,7 +9,7 @@ from layer import conv_output_size
 
 import random
 from functools import reduce
-from operator import and_
+from operator import and_, or_
 from frame_generator import FrameGenerator
 
 
@@ -22,6 +22,7 @@ def make_size_transition_graph(max_size: int, kernel_sizes: List[int], strides: 
     return g
 
 
+# TODO 先に次元を決めておいた方がサボれるのでそうしたい。
 class OutputSizeSearcher():
     """
     与えられるグラフについて、各nodeに有効な出力サイズを割り振ります。
@@ -91,14 +92,43 @@ class OutputSizeSearcher():
             size_dict[v] = size_list[idx]
         return size_dict
 
-    def sample_valid_output_size(self, input_sizes: Dict[int, int], max_failures=100):
+    # topological順序で見るのでこれていい
+    def __list_reachable_nodes_in_compressed_graph(self, v: int):
+        """ 縮約されたグラフ上でvから到達可能な点を全て列挙します """
+        reachabilities = [False] * len(self.t_sorted)
+        reachable_nodes = [v]
+        reachabilities[v] = True
+        for u in self.t_sorted:
+            if u == v:
+                continue
+            if len(self.g_compressed_inv.edges([u])) == 0:
+                continue
+            is_reachable = reduce(or_, [reachabilities[f] for (_, f) in self.g_compressed_inv.edges([u])])
+            if is_reachable:
+                reachabilities[u] = True
+                reachable_nodes.append(u)
+        return reachable_nodes
+
+    def sample_output_dimensions(self):
+        middle_nodes = set(self.g.nodes) - (set(self.starts) - set(self.ends))
+        middle_node_scc_indices = list({self.scc_idx[v] for v in middle_nodes})
+        seed_node = random.choice(middle_node_scc_indices)
+        one_dimensional_nodes = set(self.__list_reachable_nodes_in_compressed_graph(seed_node))
+        return {v: 1 if self.scc_idx[v] in one_dimensional_nodes else 4 for v in self.g.nodes}
+
+    def sample_valid_output_size(self, input_sizes: Dict[int, int], output_dimensions: Dict[int, int], max_failures=100):
         """
         有効な出力サイズを探して１つ返します。
         Parameters
         ----------
         input_sizes: input nodeの番号がkey, 入力サイズがvalueのdict  
+        output_dimensions: nodeの番号がkey, 出力の次元(1 or 4)がvalueのdict   
         max_failures: max_failures回失敗したら諦めてFalseを返します
+        Returns
+        ----------
+        output_sizes: nodeの番号がkey, 出力のサイズがvalueのdict(次元が1のnodeについては本関数では決めず-1を返す) 
         """
+        scc_idx_output_dimensions = {self.scc_idx[v]: output_dimensions[v] for v in self.g.nodes}
         assert len(input_sizes) == len(self.starts)
         find = False
         starts = [self.scc_idx[s] for s in self.starts]
@@ -111,20 +141,24 @@ class OutputSizeSearcher():
             for v in self.t_sorted:
                 if v in starts: continue
                 is_end = v == self.t_sorted[-1]
-                s = list(self.g_compressed_inv.edges([v]))[0][1]  # どこでもいいのでvに入る頂点をpick up
-                valid_sizes = []  # 割り当て可能なsize
-                for _, sz in self.size_transision_graph.edges([g_labeled.nodes[s]['size']]):
-                    validities = [
-                        self.size_transision_graph.has_edge(g_labeled.nodes[u]['size'], sz) for _, u in self.g_compressed_inv.edges([v])
-                    ]
-                    is_valid_size = reduce(and_, validities)
-                    if is_valid_size:
-                        valid_sizes.append(sz)
-                if len(valid_sizes) == 0:
-                    fail_count += 1
-                    if fail_count >= max_failures: return False
-                    break
+                # 出力が1次元のものはここでは決めない
+                if scc_idx_output_dimensions[v] == 1:
+                    g_labeled.nodes[v]['size'] = -1
+                else:
+                    s = list(self.g_compressed_inv.edges([v]))[0][1]  # どこでもいいのでvに入る頂点をpick up
+                    valid_sizes = []  # 割り当て可能なsize
+                    for _, sz in self.size_transision_graph.edges([g_labeled.nodes[s]['size']]):
+                        validities = [
+                            self.size_transision_graph.has_edge(g_labeled.nodes[u]['size'], sz) for _, u in self.g_compressed_inv.edges([v])
+                        ]
+                        is_valid_size = reduce(and_, validities)
+                        if is_valid_size:
+                            valid_sizes.append(sz)
+                    if len(valid_sizes) == 0:
+                        fail_count += 1
+                        if fail_count >= max_failures: return False
+                        break
 
-                g_labeled.nodes[v]['size'] = random.sample(valid_sizes, 1)[0]
+                    g_labeled.nodes[v]['size'] = random.sample(valid_sizes, 1)[0]
                 if is_end:
                     return self.__as_size_dict([g_labeled.nodes[v]['size'] for v in self.t_sorted])
