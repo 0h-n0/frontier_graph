@@ -99,9 +99,7 @@ class OutputSizeSearcher():
         reachable_nodes = [v]
         reachabilities[v] = True
         for u in self.t_sorted:
-            if u == v:
-                continue
-            if len(self.g_compressed_inv.edges([u])) == 0:
+            if u == v or len(self.g_compressed_inv.edges([u])) == 0:
                 continue
             is_reachable = reduce(or_, [reachabilities[f] for (_, f) in self.g_compressed_inv.edges([u])])
             if is_reachable:
@@ -116,6 +114,7 @@ class OutputSizeSearcher():
         one_dimensional_nodes = set(self.__list_reachable_nodes_in_compressed_graph(seed_node))
         return {v: 1 if self.scc_idx[v] in one_dimensional_nodes else 4 for v in self.g.nodes}
 
+    # 次元はこの関数で決めるのではなくて外で決めて渡すインターフェースがいいと思ったのでこうなったが恐ろしいくらい分かりにくいw
     def sample_valid_output_size(self, input_sizes: Dict[int, int], output_dimensions: Dict[int, int], max_failures=100):
         """
         有効な出力サイズを探して１つ返します。

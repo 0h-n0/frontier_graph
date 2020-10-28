@@ -51,6 +51,9 @@ class FrameGenerator():
                     cur_graph_inv.remove_edge(to, v)
 
     def list_valid_graph(self, max_graphs=100):
+        """
+        有効なグラフを最大max_graphs列挙します
+        """
         start = min(self.starts)
         valid_graphs = []
         self.__dfs(start, nx.DiGraph(), nx.DiGraph(), valid_graphs, max_graphs)
