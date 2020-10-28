@@ -77,16 +77,16 @@ class FrameGenerator():
         # 逆順に見てendsの中でinputからのpathがないものをつないでいく
         for v in reversed(list(self.g.nodes)):
             if v not in self.starts and (v in self.ends or len(g.edges([v])) > 0) and len(g_inv.edges([v])) == 0:
-                # nodes = [s for (_, s) in self.g_inv.edges([v])]
-                # u = random.choice(nodes)
-                # g.add_edge(u, v)
-                # g_inv.add_edge(v, u)
-                edges = self.g_inv.edges([v])
-                edge_selection = random.randrange(1, 1 << len(edges))
-                for i, (_, f) in enumerate(edges):
-                    if (1 << i) & edge_selection:
-                        g.add_edge(f, v)
-                        g_inv.add_edge(v, f)
+                nodes = [s for (_, s) in self.g_inv.edges([v])]
+                u = random.choice(nodes)
+                g.add_edge(u, v)
+                g_inv.add_edge(v, u)
+                # edges = self.g_inv.edges([v])
+                # edge_selection = random.randrange(1, 1 << len(edges))
+                # for i, (_, f) in enumerate(edges):
+                #     if (1 << i) & edge_selection:
+                #         g.add_edge(f, v)
+                #         g_inv.add_edge(v, f)
 
         return g
 
