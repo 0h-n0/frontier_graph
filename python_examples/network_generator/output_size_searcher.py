@@ -3,12 +3,11 @@ from networkx.algorithms.components import strongly_connected_components
 
 import itertools
 from typing import List, Dict
-
-from layer import conv_output_size
-
 import random
 from functools import reduce
 from operator import and_, or_
+
+from layer import conv_output_size
 from frame_generator import FrameGenerator
 
 
@@ -23,7 +22,7 @@ def make_size_transition_graph(max_size: int, kernel_sizes: List[int], strides: 
 
 class OutputSizeSearcher():
     """
-    与えられるグラフについて、各nodeに有効な出力サイズを割り振ります。
+    与えられるグラフについて、各nodeに有効な出力サイズを割り振るためのクラス
     Attributes
     -------
     g_compressed: gの形状から同じ出力サイズになることが要請される頂点を縮約したグラフ  
@@ -110,16 +109,24 @@ class OutputSizeSearcher():
                 reachable_nodes.append(u)
         return reachable_nodes
 
-    def sample_output_dimensions(self):
+    def sample_output_dimensions(self, n_seed_nodes=3):
+        """
+        有効な出力の次元を１つ返します。  
+        １次元になる頂点をn_seed_nodes個決め、それらより下は１次元にするという感じの動作をします。
+        Returns
+        ----------
+        nodeの番号がkey, 出力の次元(1 or 4)がvalueのdict  
+        """
         middle_nodes = set(self.g.nodes) - (set(self.starts) - set(self.ends))
         middle_node_scc_indices = list({self.scc_idx[v] for v in middle_nodes})
-        seed_node = random.choice(middle_node_scc_indices)
-        one_dimensional_nodes = set(self.__list_reachable_nodes_in_compressed_graph(seed_node))
+        seed_nodes = random.sample(middle_node_scc_indices, n_seed_nodes)
+        one_dimensional_nodes = reduce(
+            or_, [set(self.__list_reachable_nodes_in_compressed_graph(seed_node)) for seed_node in seed_nodes]
+        )
         return {v: 1 if self.scc_idx[v] in one_dimensional_nodes else 4 for v in self.g.nodes}
 
     def __list_valid_output_sizes_of_node(self, g_labeled: nx.DiGraph, v: int):
-        # NOTE: どこでもいいのでvに入る辺がある頂点をpick up(.edges()でtupleのlistが取れるので以下のコードになる)
-        s = list(self.g_compressed_inv.edges([v]))[0][1]
+        s = list(self.g_compressed_inv.edges([v]))[0][1]  # NOTE: どこでもいいのでvに入る辺がある頂点をpick up
         valid_sizes = []  # 割り当て可能なsize
         for _, sz in self.size_transision_graph.edges([g_labeled.nodes[s]['size']]):
             validities = [

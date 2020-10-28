@@ -1,13 +1,10 @@
 import networkx as nx
-
-from typing import List, Dict
-import matplotlib.pyplot as plt
-
 from inferno.extensions.containers import Graph
 from inferno.extensions.layers.reshape import Concatenate
-
 import torchex.nn as exnn
 import torch.nn as nn
+
+from typing import List, Dict
 
 from layer import find_conv_layer, conv2d, ConcatConv, FlattenLinear, ConcatFlatten
 
@@ -15,6 +12,8 @@ from layer import find_conv_layer, conv2d, ConcatConv, FlattenLinear, ConcatFlat
 # constructorがまあまあなロジック持ってるけどどうしよう
 class NNModuleGenerator():
     """
+    与えられたグラフなどからネットワークを作るためのクラス
+    ------------
     Attributes(分かりにくそうなもののみ記載):
        network_input_sizes: (各入力のnodeについて)nodeの番号がkey, 入力サイズがvalueのdict 
        node_output_sizes: (各nodeについて)nodeの番号がkey, 出力サイズがvalueのdict 
@@ -63,7 +62,7 @@ class NNModuleGenerator():
         return len(self.g_inv.edges([v])) >= 2 and self.node_output_sizes[v] == self.node_input_sizes[v]
 
     def is_linear_node(self, v: int) -> bool:
-        return self.node_output_dimensions[v] == 1 and self.node_input_dimensions[v] == 1
+        return len(self.g_inv.edges([v])) == 1 and self.node_output_dimensions[v] == 1 and self.node_input_dimensions[v] == 1
 
     def get_input_sizes(self):
         input_sizes = {}

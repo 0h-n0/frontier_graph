@@ -1,4 +1,7 @@
 import networkx as nx
+from torchviz import make_dot
+import torch
+import random
 
 from typing import List, Dict, Callable
 
@@ -6,9 +9,6 @@ from test_data_generator import generate_graph
 from frame_generator import FrameGenerator
 from output_size_searcher import OutputSizeSearcher
 from module_generator import NNModuleGenerator
-
-from torchviz import make_dot
-import torch
 
 
 def calc_network_quality(output_sizes: Dict[int, int], output_dims: Dict[int, int]) -> int:
@@ -42,7 +42,8 @@ def list_networks(
 
         candidate_sizes = []
         for _ in range(n_network_candidates):
-            output_dimensions = oss.sample_output_dimensions()
+            # NOTE: n_seed_nodesによって出力の次元が１になる頂点数が左右される。グラフのサイズによって変更する方が良いかもしれない。
+            output_dimensions = oss.sample_output_dimensions(n_seed_nodes=3)
             result = oss.sample_valid_output_size(network_input_sizes, output_dimensions)
             if result == False: break
             else: candidate_sizes.append((result, output_dimensions))
@@ -59,6 +60,7 @@ def list_networks(
 
 
 if __name__ == "__main__":
+    random.seed(10)
     g, starts, ends = generate_graph(1, 12, 13, 1)
     kernel_sizes = [1, 2, 3]
     strides = [1, 2, 3]
@@ -80,7 +82,7 @@ if __name__ == "__main__":
 
     for idx, network in enumerate(networks):
         print(network)
-        # out = network(*dryrun_args)
-        # dot = make_dot(out)
-        # dot.format = 'png'
-        # dot.render(f'test_outputs/graph_image_{idx}')
+        out = network(*dryrun_args)
+        dot = make_dot(out)
+        dot.format = 'png'
+        dot.render(f'test_outputs/graph_image_{idx}')
