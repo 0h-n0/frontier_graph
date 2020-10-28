@@ -48,7 +48,6 @@ class NNModuleGenerator():
         self.strides = strides
         self.output_channels = self.__calc_output_channels(output_channel_candidates)
 
-    # TODO この辺りは順番次第では動かないので直す
     def is_concat_flatten_node(self, v) -> bool:
         return len(self.g_inv.edges([v])) >= 2 and self.node_output_dimensions[v] != self.node_input_dimensions[v]
 
@@ -56,7 +55,7 @@ class NNModuleGenerator():
         return len(self.g_inv.edges([v])) <= 1 and self.node_output_dimensions[v] != self.node_input_dimensions[v]
 
     def is_concat_conv_node(self, v) -> bool:
-        return len(self.g_inv.edges([v])) >= 2 and self.node_output_sizes[v] != self.node_input_sizes[v]
+        return len(self.g_inv.edges([v])) >= 2 and self.node_output_sizes[v] != self.node_input_sizes[v] and self.node_output_dimensions[v] == 4
 
     def is_concat_node(self, v: int) -> bool:
         return len(self.g_inv.edges([v])) >= 2 and self.node_output_sizes[v] == self.node_input_sizes[v]
