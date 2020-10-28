@@ -4,7 +4,6 @@ from networkx.algorithms.components import strongly_connected_components
 import itertools
 from typing import List, Dict
 
-from test_data_generator import make_graph
 from layer import conv_output_size
 
 import random
@@ -22,10 +21,14 @@ def make_size_transition_graph(max_size: int, kernel_sizes: List[int], strides: 
     return g
 
 
-# TODO 先に次元を決めておいた方がサボれるのでそうしたい。
 class OutputSizeSearcher():
     """
     与えられるグラフについて、各nodeに有効な出力サイズを割り振ります。
+    Attributes
+    -------
+    g_compressed: gの形状から同じ出力サイズになることが要請される頂点を縮約したグラフ  
+    scc_idx: scc_idx[v]で、gの頂点vに対するg_compressedの頂点の番号を取得できる  
+    t_sorted: g_compressedの頂点をトポロジカル順序に並べたリスト 
     """
 
     def __init__(
@@ -39,7 +42,7 @@ class OutputSizeSearcher():
         strides: List[int]
     ):
         self.g = g
-        self.n_nodes = max(g.nodes)
+        self.max_node_idx = max(g.nodes)
         self.g_inv = g.reverse()
         self.starts = starts
         self.ends = ends
@@ -64,7 +67,7 @@ class OutputSizeSearcher():
                     for _, u in self.g_inv.edges([v]):
                         g_for_scc.add_edge(v, u)
 
-        scc_idx = [0] * (self.n_nodes + 1)
+        scc_idx = [0] * (self.max_node_idx + 1)
         scc = strongly_connected_components(g_for_scc)
         for idx, nodes in enumerate(scc):
             for v in nodes:
@@ -114,7 +117,20 @@ class OutputSizeSearcher():
         one_dimensional_nodes = set(self.__list_reachable_nodes_in_compressed_graph(seed_node))
         return {v: 1 if self.scc_idx[v] in one_dimensional_nodes else 4 for v in self.g.nodes}
 
-    # 次元はこの関数で決めるのではなくて外で決めて渡すインターフェースがいいと思ったのでこうなったが恐ろしいくらい分かりにくいw
+    def __list_valid_output_sizes_of_node(self, g_labeled: nx.DiGraph, v: int):
+        # NOTE: どこでもいいのでvに入る辺がある頂点をpick up(.edges()でtupleのlistが取れるので以下のコードになる)
+        s = list(self.g_compressed_inv.edges([v]))[0][1]
+        valid_sizes = []  # 割り当て可能なsize
+        for _, sz in self.size_transision_graph.edges([g_labeled.nodes[s]['size']]):
+            validities = [
+                self.size_transision_graph.has_edge(g_labeled.nodes[u]['size'], sz) for _, u in self.g_compressed_inv.edges([v])
+            ]
+            is_valid_size = reduce(and_, validities)
+            if is_valid_size:
+                valid_sizes.append(sz)
+        return valid_sizes
+
+    # TODO refactor
     def sample_valid_output_size(self, input_sizes: Dict[int, int], output_dimensions: Dict[int, int], max_failures=100):
         """
         有効な出力サイズを探して１つ返します。
@@ -127,37 +143,33 @@ class OutputSizeSearcher():
         ----------
         output_sizes: nodeの番号がkey, 出力のサイズがvalueのdict(次元が1のnodeについては本関数では決めず-1を返す) 
         """
-        scc_idx_output_dimensions = {self.scc_idx[v]: output_dimensions[v] for v in self.g.nodes}
         assert len(input_sizes) == len(self.starts)
-        find = False
+        scc_idx_output_dimensions = {self.scc_idx[v]: output_dimensions[v] for v in self.g.nodes}
         starts = [self.scc_idx[s] for s in self.starts]
         fail_count = 0
-        while not find:
+        while fail_count < max_failures:
             g_labeled = nx.DiGraph()
             g_labeled.add_nodes_from(self.t_sorted)
-            for v, s in input_sizes.items(): g_labeled.nodes[self.t_sorted[v]]['size'] = s
+
+            # 入力の頂点はそのままのサイズで出力する
+            for v, s in input_sizes.items():
+                g_labeled.nodes[self.scc_idx[v]]['size'] = s
 
             for v in self.t_sorted:
                 if v in starts: continue
-                is_end = v == self.t_sorted[-1]
                 # 出力が1次元のものはここでは決めない
                 if scc_idx_output_dimensions[v] == 1:
                     g_labeled.nodes[v]['size'] = -1
                 else:
                     s = list(self.g_compressed_inv.edges([v]))[0][1]  # どこでもいいのでvに入る頂点をpick up
-                    valid_sizes = []  # 割り当て可能なsize
-                    for _, sz in self.size_transision_graph.edges([g_labeled.nodes[s]['size']]):
-                        validities = [
-                            self.size_transision_graph.has_edge(g_labeled.nodes[u]['size'], sz) for _, u in self.g_compressed_inv.edges([v])
-                        ]
-                        is_valid_size = reduce(and_, validities)
-                        if is_valid_size:
-                            valid_sizes.append(sz)
+                    valid_sizes = self.__list_valid_output_sizes_of_node(g_labeled, v)
                     if len(valid_sizes) == 0:
                         fail_count += 1
-                        if fail_count >= max_failures: return False
                         break
+                    g_labeled.nodes[v]['size'] = random.choice(valid_sizes)
 
-                    g_labeled.nodes[v]['size'] = random.sample(valid_sizes, 1)[0]
+                is_end = v == self.t_sorted[-1]
                 if is_end:
                     return self.__as_size_dict([g_labeled.nodes[v]['size'] for v in self.t_sorted])
+
+        return False

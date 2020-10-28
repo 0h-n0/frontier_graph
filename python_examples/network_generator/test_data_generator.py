@@ -2,26 +2,6 @@ import networkx as nx
 import random
 
 from typing import List
-import matplotlib.pyplot as plt
-
-
-def make_graph():
-    g = nx.DiGraph()
-    starts = [1, 2]
-    ends = [9, ]
-    g.add_edge(1, 3)
-    g.add_edge(2, 4)
-    g.add_edge(3, 5)
-    g.add_edge(3, 6)
-    g.add_edge(4, 5)
-    g.add_edge(4, 7)
-    g.add_edge(5, 6)
-    g.add_edge(5, 7)
-    g.add_edge(5, 8)
-    g.add_edge(6, 8)
-    g.add_edge(7, 8)
-    g.add_edge(8, 9)
-    return g, starts, ends
 
 
 def generate_random_graph(size: int, starts: List[int], ends: List[int], p: float) -> nx.DiGraph:

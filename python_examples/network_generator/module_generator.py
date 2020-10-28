@@ -19,6 +19,7 @@ class NNModuleGenerator():
        network_input_sizes: (各入力のnodeについて)nodeの番号がkey, 入力サイズがvalueのdict 
        node_output_sizes: (各nodeについて)nodeの番号がkey, 出力サイズがvalueのdict 
        network_output_sizes: (各出力のnodeについて)nodeの番号がkey, 出力サイズがvalueのdict 
+       network_output_dimensions: (各出力のnodeについて)nodeの番号がkey, 出力の次元がvalueのdict 
     """
 
     def __init__(

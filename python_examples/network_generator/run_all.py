@@ -35,25 +35,22 @@ def list_networks(
     1件に対しn_network_candidates件候補をあげ、calc_network_qualityの値が最大のものを選びます
     """
     networks = []
-    for _ in range(n_networks):
+    while len(networks) < n_networks:
         frame = fg.sample_graph()
         oss = OutputSizeSearcher(frame, starts, ends, max(network_input_sizes.values()),
                                  allow_param_in_concat, kernel_sizes, strides)
 
-        output_sizes = []
+        candidate_sizes = []
         for _ in range(n_network_candidates):
             output_dimensions = oss.sample_output_dimensions()
             result = oss.sample_valid_output_size(network_input_sizes, output_dimensions)
             if result == False: break
-            else: output_sizes.append((result, output_dimensions))
+            else: candidate_sizes.append((result, output_dimensions))
 
-        if len(output_sizes) == 0: continue
+        if len(candidate_sizes) == 0: continue
 
-        opt_sizes, opt_dims = max(output_sizes, key=lambda x: calc_network_quality(x[0], x[1]))
-        # print(frame.edges)
-        # print(opt_sizes)
-        # print(opt_dims)
-        mg = NNModuleGenerator(frame, starts, ends, network_input_sizes, opt_sizes, opt_dims, network_output_sizes,
+        output_sizes, output_dimensions = max(candidate_sizes, key=lambda x: calc_network_quality(x[0], x[1]))
+        mg = NNModuleGenerator(frame, starts, ends, network_input_sizes, output_sizes, output_dimensions, network_output_sizes,
                                kernel_sizes, strides, output_channel_candidates)
 
         module = mg.run()
@@ -69,6 +66,8 @@ if __name__ == "__main__":
     network_input_sizes = {v: 224 for v in starts}
     network_output_sizes = {v: 1 for v in ends}
     allow_param_in_concat = True
+    n_networks = 100
+    n_network_candidates = 10
 
     fg = FrameGenerator(g, starts, ends)
     dryrun_args = tuple([torch.rand(1, 3, s, s) for s in network_input_sizes.values()])
@@ -77,11 +76,11 @@ if __name__ == "__main__":
         g, starts, ends, kernel_sizes, strides,
         output_channel_candidates, network_input_sizes,
         network_output_sizes, allow_param_in_concat,
-        100, 100, calc_network_quality)
+        n_networks, n_network_candidates, calc_network_quality)
 
     for idx, network in enumerate(networks):
         print(network)
-        out = network(*dryrun_args)
-        dot = make_dot(out)
-        dot.format = 'png'
-        dot.render(f'test_outputs/graph_image_{idx}')
+        # out = network(*dryrun_args)
+        # dot = make_dot(out)
+        # dot.format = 'png'
+        # dot.render(f'test_outputs/graph_image_{idx}')
