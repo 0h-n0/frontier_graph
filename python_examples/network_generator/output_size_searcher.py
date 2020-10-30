@@ -62,9 +62,9 @@ class OutputSizeSearcher():
             if self.is_concat_node(v):
                 if self.allow_param_in_concat:
                     v_edges = list(self.g_inv.edges([v]))
-                    for (_, f), (__, t) in zip(v_edges[:-1], v_edges[1:]):
-                        g_for_scc.add_edge(f, t)
-                        g_for_scc.add_edge(t, f)
+                    for (_, s), (__, t) in zip(v_edges[:-1], v_edges[1:]):
+                        g_for_scc.add_edge(s, t)
+                        g_for_scc.add_edge(t, s)
                 else:
                     for _, u in self.g_inv.edges([v]):
                         g_for_scc.add_edge(v, u)
@@ -106,7 +106,7 @@ class OutputSizeSearcher():
         for u in self.t_sorted:
             if u == v or len(self.g_compressed_inv.edges([u])) == 0:
                 continue
-            is_reachable = reduce(or_, [reachabilities[f] for (_, f) in self.g_compressed_inv.edges([u])])
+            is_reachable = reduce(or_, [reachabilities[s] for (_, s) in self.g_compressed_inv.edges([u])])
             if is_reachable:
                 reachabilities[u] = True
                 reachable_nodes.append(u)
@@ -153,8 +153,8 @@ class OutputSizeSearcher():
             g_labeled.add_nodes_from(self.t_sorted)
 
             # 入力の頂点はそのままのサイズで出力する
-            for v, s in input_sizes.items():
-                g_labeled.nodes[self.scc_idx[v]]['size'] = s
+            for v, sz in input_sizes.items():
+                g_labeled.nodes[self.scc_idx[v]]['size'] = sz
 
             for v in self.t_sorted:
                 if v in starts: continue

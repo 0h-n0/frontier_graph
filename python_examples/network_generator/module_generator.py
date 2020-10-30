@@ -60,8 +60,8 @@ class NNModuleGenerator():
 
     def __get_input_sizes(self):
         input_sizes = {}
-        for v, s in self.network_input_sizes.items():
-            input_sizes[v] = s
+        for v, sz in self.network_input_sizes.items():
+            input_sizes[v] = sz
         for s, t in self.g.edges:
             input_sizes[t] = self.node_output_sizes[s]
         return input_sizes

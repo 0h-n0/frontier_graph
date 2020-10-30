@@ -72,7 +72,7 @@ if __name__ == "__main__":
     n_network_candidates = 10
 
     fg = FrameGenerator(g, starts, ends)
-    dryrun_args = tuple([torch.rand(1, 3, s, s) for s in network_input_sizes.values()])
+    dryrun_args = tuple([torch.rand(1, 3, sz, sz) for sz in network_input_sizes.values()])
 
     networks = list_networks(
         g, starts, ends, kernel_sizes, strides,
