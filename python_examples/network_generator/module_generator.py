@@ -10,7 +10,6 @@ from typing import List, Dict
 from layer import find_conv_layer, conv2d, ConcatConv, FlattenLinear, ConcatFlatten
 
 
-# constructorがまあまあなロジック持ってるけどどうしよう
 class NNModuleGenerator():
     """
     与えられたグラフなどからネットワークを作るためのクラス
@@ -43,25 +42,25 @@ class NNModuleGenerator():
         self.node_output_sizes = node_output_sizes
         self.node_output_dimensions = node_output_dimensions
         self.network_output_sizes = network_output_sizes
-        self.node_input_sizes = self.get_input_sizes()
-        self.node_input_dimensions = self.get_input_dimensions()
+        self.node_input_sizes = self.__get_input_sizes()
+        self.node_input_dimensions = self.__get_input_dimensions()
         self.kernel_sizes = kernel_sizes
         self.strides = strides
         self.output_channels = self.__calc_output_channels(output_channel_candidates)
 
-    def is_concat_flatten_node(self, v) -> bool:
+    def __is_concat_flatten_node(self, v) -> bool:
         return len(self.g_inv.edges([v])) >= 2 and self.node_output_dimensions[v] != self.node_input_dimensions[v]
 
-    def is_flatten_node(self, v) -> bool:
+    def __is_flatten_node(self, v) -> bool:
         return self.node_output_dimensions[v] != self.node_input_dimensions[v]
 
-    def is_concat_conv_node(self, v) -> bool:
+    def __is_concat_conv_node(self, v) -> bool:
         return len(self.g_inv.edges([v])) >= 2 and self.node_output_sizes[v] != self.node_input_sizes[v] and self.node_output_dimensions[v] == 4
 
-    def is_concat_node(self, v: int) -> bool:
+    def __is_concat_node(self, v: int) -> bool:
         return len(self.g_inv.edges([v])) >= 2
 
-    def get_input_sizes(self):
+    def __get_input_sizes(self):
         input_sizes = {}
         for v, s in self.network_input_sizes.items():
             input_sizes[v] = s
@@ -69,7 +68,7 @@ class NNModuleGenerator():
             input_sizes[t] = self.node_output_sizes[s]
         return input_sizes
 
-    def get_input_dimensions(self):
+    def __get_input_dimensions(self):
         input_dimensions = {}
         for v in self.starts:
             input_dimensions[v] = 4
@@ -77,13 +76,13 @@ class NNModuleGenerator():
             input_dimensions[t] = self.node_output_dimensions[s]
         return input_dimensions
 
-    def get_identity_or_relu_at_random(self):
+    def __get_identity_or_relu_at_random(self):
         return nn.Identity() if random.randrange(2) == 0 else nn.ReLU()
 
-    def get_identity_or_linear_at_random(self, out_channels: int):
+    def __get_identity_or_linear_at_random(self, out_channels: int):
         return nn.Identity() if random.randrange(2) == 0 else exnn.Linear(out_channels)
 
-    def add_layer(self, v: int, module):
+    def __add_layer(self, v: int, module):
         previous_nodes = [f"{u}" for (_, u) in self.g_inv.edges([v])]
         out_channels = self.output_channels[v]
         if v in self.starts:
@@ -91,10 +90,10 @@ class NNModuleGenerator():
         elif v in self.ends:
             module.add_node(f"{v}", previous=previous_nodes, module=FlattenLinear(self.network_output_sizes[v]))
 
-        elif self.is_concat_node(v):
-            if self.is_concat_flatten_node(v):
+        elif self.__is_concat_node(v):
+            if self.__is_concat_flatten_node(v):
                 module.add_node(f"{v}", previous=previous_nodes, module=ConcatFlatten(out_channels))
-            elif self.is_concat_conv_node(v):
+            elif self.__is_concat_conv_node(v):
                 k, s = find_conv_layer(self.node_input_sizes[v],
                                        self.node_output_sizes[v], self.kernel_sizes, self.strides)
                 module.add_node(f"{v}", previous=previous_nodes, module=ConcatConv(
@@ -102,7 +101,7 @@ class NNModuleGenerator():
             else:
                 module.add_node(f"{v}", previous=previous_nodes, module=Concatenate())
 
-        elif self.is_flatten_node(v):
+        elif self.__is_flatten_node(v):
             module.add_node(f"{v}", previous=previous_nodes, module=FlattenLinear(out_channels))
 
         elif self.node_output_sizes[v] != self.node_input_sizes[v]:
@@ -112,10 +111,11 @@ class NNModuleGenerator():
                 out_channels=out_channels, kernel_size=k, stride=s))
 
         elif self.node_input_dimensions[v] == 1:
-            module.add_node(f"{v}", previous=previous_nodes, module=self.get_identity_or_linear_at_random(out_channels))
+            module.add_node(f"{v}", previous=previous_nodes,
+                            module=self.__get_identity_or_linear_at_random(out_channels))
 
         elif self.node_input_dimensions[v] == 4:
-            module.add_node(f"{v}", previous=previous_nodes, module=self.get_identity_or_relu_at_random())
+            module.add_node(f"{v}", previous=previous_nodes, module=self.__get_identity_or_relu_at_random())
 
     def __calc_output_channels(self, output_channel_candidates: List[int]):
         """
@@ -136,7 +136,7 @@ class NNModuleGenerator():
     def run(self):
         module = Graph()
         for v in sorted(list(self.g.nodes)):
-            self.add_layer(v, module)
+            self.__add_layer(v, module)
         module.add_node('concat', previous=[f"{t}" for t in self.ends], module=Concatenate())
         module.add_output_node('output', previous='concat')
         return module

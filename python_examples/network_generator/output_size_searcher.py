@@ -27,7 +27,8 @@ class OutputSizeSearcher():
     -------
     g_compressed: gの形状から同じ出力サイズになることが要請される頂点を縮約したグラフ  
     scc_idx: scc_idx[v]で、gの頂点vに対するg_compressedの頂点の番号を取得できる  
-    t_sorted: g_compressedの頂点をトポロジカル順序に並べたリスト 
+    t_sorted: g_compressedの頂点をトポロジカル順序に並べたリスト   
+    allow_param_in_concat: concatの頂点でconvolutionなどの別処理をすることを許すか否か
     """
 
     def __init__(
@@ -36,7 +37,7 @@ class OutputSizeSearcher():
         starts: List[int],
         ends: List[int],
         max_input_size: int,
-        allow_param_in_concat: bool,  # concat + conv などを許すか
+        allow_param_in_concat: bool,
         kernel_sizes: List[int],
         strides: List[int]
     ):
@@ -174,8 +175,8 @@ class OutputSizeSearcher():
                         break
                     g_labeled.nodes[v]['size'] = random.choice(valid_sizes)
 
-                is_end = v == self.t_sorted[-1]
-                if is_end:
+                v_is_end = v == self.t_sorted[-1]
+                if v_is_end:
                     return self.__as_size_dict([g_labeled.nodes[v]['size'] for v in self.t_sorted])
 
         return False

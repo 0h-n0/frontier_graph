@@ -59,8 +59,3 @@ def generate_graph(n_inputs: int, n_outputs: int, max_width: int, max_width_coun
     starts = list(range(0, n_inputs))
     ends = list(range(cumsum, cumsum + n_outputs))
     return g, starts, ends
-
-
-if __name__ == "__main__":
-    g, s, t = generate_graph(4, 4, 5, 2)
-    print(s, t)
