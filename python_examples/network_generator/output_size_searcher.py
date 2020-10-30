@@ -12,9 +12,11 @@ from frame_generator import FrameGenerator
 
 
 def make_size_transition_graph(max_size: int, kernel_sizes: List[int], strides: List[int]):
+    """ 遷移可能なサイズ間に有向辺を張ったグラフを作成します """
     g = nx.DiGraph()
     for x_in in range(1, max_size + 1):
-        for s, k in itertools.product(kernel_sizes, strides):
+        g.add_edge(x_in, x_in)  # NOTE: identityのために自己辺は必ず張っておく
+        for k, s in itertools.product(kernel_sizes, strides):
             x_out = conv_output_size(x_in, k, s)
             if x_out > 0: g.add_edge(x_in, x_out)
     return g
@@ -56,7 +58,7 @@ class OutputSizeSearcher():
         """ 出力サイズが同じ頂点を縮約したグラフを作る """
         g_for_scc = self.g.copy()
         for v in self.g.nodes:
-            # vの入力があるnodeとvのoutput_sizeは同じ
+            # vからの入力があるnodeとvのoutput_sizeは同じ
             if self.is_concat_node(v):
                 if self.allow_param_in_concat:
                     v_edges = list(self.g_inv.edges([v]))
@@ -127,18 +129,9 @@ class OutputSizeSearcher():
         return {v: 1 if self.scc_idx[v] in one_dimensional_nodes else 4 for v in self.g.nodes}
 
     def __list_valid_output_sizes_of_node(self, g_labeled: nx.DiGraph, v: int):
-        s = list(self.g_compressed_inv.edges([v]))[0][1]  # NOTE: どこでもいいのでvに入る辺がある頂点をpick up
-        valid_sizes = []  # 割り当て可能なsize
-        for _, sz in self.size_transision_graph.edges([g_labeled.nodes[s]['size']]):
-            validities = [
-                self.size_transision_graph.has_edge(g_labeled.nodes[u]['size'], sz) for _, u in self.g_compressed_inv.edges([v])
-            ]
-            is_valid_size = reduce(and_, validities)
-            if is_valid_size:
-                valid_sizes.append(sz)
-        return valid_sizes
+        nodes = [u for _, u in self.g_compressed_inv.edges([v])]  # vに入る頂点たち
+        return list(reduce(and_, [{sz for _, sz in self.size_transision_graph.edges([g_labeled.nodes[u]['size']])} for u in nodes]))
 
-    # TODO refactor
     def sample_valid_output_size(self, input_sizes: Dict[int, int], output_dimensions: Dict[int, int], max_failures=100):
         """
         有効な出力サイズを探して１つ返します。

@@ -51,10 +51,10 @@ def list_networks(
         if len(candidate_sizes) == 0: continue
 
         output_sizes, output_dimensions = max(candidate_sizes, key=lambda x: calc_network_quality(x[0], x[1]))
-        mg = NNModuleGenerator(frame, starts, ends, network_input_sizes, output_sizes, output_dimensions, network_output_sizes,
-                               kernel_sizes, strides, output_channel_candidates)
+        mg = NNModuleGenerator(frame, starts, ends, network_input_sizes, output_sizes,
+                               output_dimensions, network_output_sizes, kernel_sizes, strides)
 
-        module = mg.run()
+        module = mg.run(mg.calc_output_channels(output_channel_candidates, 3))
         networks.append(module)
     return networks
 

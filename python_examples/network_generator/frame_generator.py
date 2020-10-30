@@ -17,6 +17,7 @@ class FrameGenerator():
         for (s, t) in g.edges:
             assert s < t, "edge should be directed from vertex with smaller index to vertex with larger index"
 
+    # NOTE: 再帰しているが深さが頂点数程度なので恐らく大丈夫
     def __list_valid_graph_by_dfs(self, v: int, cur_graph: nx.DiGraph, cur_graph_inv: nx.DiGraph, valid_graphs: List[nx.DiGraph], max_graphs: int):
         if len(valid_graphs) > max_graphs: return
         # endsに含まれていて入次数が0。
@@ -79,9 +80,6 @@ class FrameGenerator():
         for v in reversed(list(self.g.nodes)):
             if v not in self.starts and (v in self.ends or len(g.edges([v])) > 0) and len(g_inv.edges([v])) == 0:
                 nodes = [s for (_, s) in self.g_inv.edges([v])]
-                # u = random.choice(nodes)
-                # g.add_edge(u, v)
-                # g_inv.add_edge(v, u)
                 node_selection = random.randrange(1, 1 << len(nodes))
                 for i, f in enumerate(nodes):
                     if (1 << i) & node_selection:

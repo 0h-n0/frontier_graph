@@ -32,7 +32,6 @@ class NNModuleGenerator():
         network_output_sizes: Dict[int, int],
         kernel_sizes: List[int],
         strides: List[int],
-        output_channel_candidates: List[int]
     ):
         self.g = g
         self.g_inv = g.reverse()
@@ -46,7 +45,6 @@ class NNModuleGenerator():
         self.node_input_dimensions = self.__get_input_dimensions()
         self.kernel_sizes = kernel_sizes
         self.strides = strides
-        self.output_channels = self.__calc_output_channels(output_channel_candidates)
 
     def __is_concat_flatten_node(self, v) -> bool:
         return len(self.g_inv.edges([v])) >= 2 and self.node_output_dimensions[v] != self.node_input_dimensions[v]
@@ -82,9 +80,8 @@ class NNModuleGenerator():
     def __get_identity_or_linear_at_random(self, out_channels: int):
         return nn.Identity() if random.randrange(2) == 0 else exnn.Linear(out_channels)
 
-    def __add_layer(self, v: int, module):
+    def __add_layer(self, v: int, out_channels: int, module):
         previous_nodes = [f"{u}" for (_, u) in self.g_inv.edges([v])]
-        out_channels = self.output_channels[v]
         if v in self.starts:
             module.add_input_node(f"{v}")
         elif v in self.ends:
@@ -117,12 +114,12 @@ class NNModuleGenerator():
         elif self.node_input_dimensions[v] == 4:
             module.add_node(f"{v}", previous=previous_nodes, module=self.__get_identity_or_relu_at_random())
 
-    def __calc_output_channels(self, output_channel_candidates: List[int]):
+    def calc_output_channels(self, output_channel_candidates: List[int], input_channels: int):
         """
-        親のoutput_channelsの和以下のものがcandidatesにあったらその内最大のものを採用。
+        親のoutput_channelsの和以下のものがcandidatesにあったらその内最大のものを採用。  
         そうでないときはmin(candidates)を採用
         """
-        output_channels = {v: 3 for v in self.starts}
+        output_channels = {v: input_channels for v in self.starts}
         self.g_inv = self.g.reverse()
         for v in sorted(list(self.g.nodes)):
             if v in self.starts: continue
@@ -133,10 +130,10 @@ class NNModuleGenerator():
                 output_channels[v] = max(filter(lambda x: x <= sum_inputs, output_channel_candidates))
         return output_channels
 
-    def run(self):
+    def run(self, output_channels: Dict[int, int]):
         module = Graph()
         for v in sorted(list(self.g.nodes)):
-            self.__add_layer(v, module)
+            self.__add_layer(v, output_channels[v], module)
         module.add_node('concat', previous=[f"{t}" for t in self.ends], module=Concatenate())
         module.add_output_node('output', previous='concat')
         return module
