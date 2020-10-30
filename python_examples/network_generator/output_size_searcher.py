@@ -168,7 +168,6 @@ class OutputSizeSearcher():
                 if scc_idx_output_dimensions[v] == 1:
                     g_labeled.nodes[v]['size'] = -1
                 else:
-                    s = list(self.g_compressed_inv.edges([v]))[0][1]  # どこでもいいのでvに入る頂点をpick up
                     valid_sizes = self.__list_valid_output_sizes_of_node(g_labeled, v)
                     if len(valid_sizes) == 0:
                         fail_count += 1
