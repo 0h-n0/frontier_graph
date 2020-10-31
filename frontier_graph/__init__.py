@@ -10,8 +10,7 @@ class NetworkxInterface:
         self.digraph = digraph
         self.n_nodes = len(digraph)
 
-    def sample(self, starts: typing.List[int], ends: typing.List[int],
-               n_sample) -> typing.List[int]:
+    def sample(self, starts: typing.List[int], ends: typing.List[int], n_sample) -> typing.List[typing.List[int]]:
         assert isinstance(self.n_nodes, int), "TypeError: {type(self.n_nodes}"
         assert isinstance(starts, list), "TypeError: {type(starts}"
         assert isinstance(ends, list), "TypeError: {type(ends}"
