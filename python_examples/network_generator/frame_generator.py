@@ -65,7 +65,7 @@ class FrameGenerator():
         g = nx.DiGraph()
         g_inv = nx.DiGraph()
         # まず上から順に適当に辺を選びながらつないでいく
-        for v in self.g.nodes:
+        for v in sorted(self.g.nodes):
             if len(g_inv.edges([v])) == 0 and not v in self.starts:
                 continue
             elif v not in self.ends:
@@ -77,7 +77,7 @@ class FrameGenerator():
                         g_inv.add_edge(to, v)
 
         # 逆順に見てendsの中でinputからのpathがないものをつないでいく
-        for v in reversed(list(self.g.nodes)):
+        for v in reversed(sorted(self.g.nodes)):
             if v not in self.starts and (v in self.ends or len(g.edges([v])) > 0) and len(g_inv.edges([v])) == 0:
                 nodes = [s for (_, s) in self.g_inv.edges([v])]
                 node_selection = random.randrange(1, 1 << len(nodes))
